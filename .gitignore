@@ -1,0 +1,72 @@
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- JetBrains Rider / ReSharper ---
+.idea/
+*.sln.iml
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# --- Visual Studio / VS Code user files ---
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# --- Build output ---
+[Bb]in/
+[Oo]bj/
+*.cache
+*.mdb
+*.pdb
+
+# --- .NET / NuGet ---
+*.nupkg
+*.snupkg
+*.nuspec
+# If a local 'packages' folder appears, ignore it (global cache is used by default)
+packages/
+!packages/build/
+
+# --- Logs & temp ---
+*.log
+[Ll]og/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.swp
+*.swo
+
+# --- Test results & coverage ---
+TestResult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage*/
+coverage.*
+coverage.opencover.xml
+coverage.cobertura.xml
+*.lcov
+*.xml.coverage
+
+# --- Tooling caches ---
+.sonar/
+.scannerwork/
+.ncrunch*
+_NCrunch_*
+.*crunch*.local.xml
+
+# --- Env/secrets (add if you ever need them) ---
+.env
+.env.*
+*.secret
+
+# --- Misc (macOS resource forks) ---
+._*
+
