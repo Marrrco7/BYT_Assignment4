@@ -7,7 +7,7 @@ public class Person
     private string LastName { get; set; }
     private DateOnly DateOfBirth { get; set; }
     
-    private  int Age 
+    public  int Age 
     {
         get
         {
