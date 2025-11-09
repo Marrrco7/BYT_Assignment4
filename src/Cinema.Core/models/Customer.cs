@@ -8,13 +8,19 @@ public class Customer : Person
 {
     public string Email { get; private set; }
     public string HashPassword { get; private set; }
-    public int BonusPoints { get; private set; }
 
-    // public List<Order> Orders { get; private set; }
-    // public List<review> reviews { get; private set; }
+    // public int BonusPoints
+    // {
+    //     get
+    //     {
+    //         return Orders.Sum(o => o.Points);
+    //     }
+    // }
+    // public List<Order> Orders { get; private set; } = new();
+    // public List<Review> Reviews { get; private set; } = new();
 
     public Customer(string firstName, string lastName, DateOnly dateOfBirth,
-        string email, string rawPassword, int bonusPoints)
+        string email, string rawPassword)
         : base(firstName, lastName, dateOfBirth)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -29,35 +35,48 @@ public class Customer : Person
         if (rawPassword.Length < 6)
             throw new ArgumentException("Password must be at least 6 characters long.");
 
-        if (bonusPoints < 0)
-            throw new ArgumentException("Bonus points cannot be negative.");
-
-        if (rawPassword.Length < 6)
-            throw new ArgumentException("Raw password cannot be less than 6 characters.");
-
         Email = email;
         HashPassword = HashPasswordEncoder(rawPassword);
-        BonusPoints = bonusPoints;
     }
 
-    public void AddBonusPoints(int points)
-    {
-        if (points < 0)
-            throw new ArgumentException("Cannot add negative bonus points.");
-        BonusPoints += points;
-    }
 
-    public void RemoveBonusPoints(int points)
-    {
-        if (points < 0)
-            throw new ArgumentException("Cannot remove negative bonus points.");
+    // public int CheckBonusPoints()
+    // {
+    //     return BonusPoints;
+    // }
 
-        if (points > BonusPoints)
-            throw new ArgumentException("Not enough bonus points to remove.");
 
-        BonusPoints -= points;
-    }
+    // public void AddOrder(Order order)
+    // {
+    //     if (order == null)
+    //         throw new ArgumentNullException(nameof(order));
+    //     Orders.Add(order);
+    // }
 
+    // public void RemoveOrder(Order order)
+    // {
+    //     if (order == null)
+    //         throw new ArgumentNullException(nameof(order));
+    //     Orders.Remove(order);
+    // }
+
+
+    // public void AddReview(Review review)
+    // {
+    //     if (review == null)
+    //         throw new ArgumentNullException(nameof(review));
+    //
+    //     Reviews.Add(review);
+    // }
+
+    // public void RemoveReview(Review review)
+    // {
+    //     if (review == null)
+    //         throw new ArgumentNullException(nameof(review)); 
+    //
+    //     Reviews.Remove(review);
+    // }
+    
     private string HashPasswordEncoder(string password)
     {
         using (SHA256 sha256 = SHA256.Create())
