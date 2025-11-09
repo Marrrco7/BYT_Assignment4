@@ -1,10 +1,10 @@
 namespace Cinema.Core.models;
 
-public class Person
+public abstract class Person
 {
     
-    private string FirstName { get; set; } 
-    private string LastName { get; set; }
+    public string FirstName { get; set; } 
+    public string LastName { get; set; }
     private DateOnly DateOfBirth { get; set; }
     
     public  int Age 
