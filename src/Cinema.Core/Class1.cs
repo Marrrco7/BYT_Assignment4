@@ -7,7 +7,7 @@ public class Class1
 
     public static void Main()
     {
-        var fullTimeContract = new FullTimeContract(2500m, hasBenefitsPlan: true);
+        var fullTimeContract = new FullTimeContract(2500m,  true);
 
         var employee = new Employee(
             firstName: "Ivan",
