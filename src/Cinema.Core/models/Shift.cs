@@ -6,6 +6,7 @@ public class Shift
 {
     private DateTime StartTime { get; set; }
     private DateTime EndTime { get; set; }
+    // we should add it to our CD
     private TimeSpan Duration => EndTime - StartTime;
     
     public CleanerRole Cleaner { get; private set; }
