@@ -15,11 +15,12 @@ public enum TypeOfOrder
 
 public class Order
 {
+    private static int _counter = 0;
     private int Id { get; set; }
     private DateTime CreatedAt { get; set; }
     private TypeOfOrder TypeOfOrder { get; set; }
     private OrderStatus Status { get; set; }
-    public int? BonusPoints { get; private set; }
+    private string? EmailForBonusPoints { get; set; }
 
     // XOR
     private Customer? Customer { get; set; }
@@ -28,39 +29,38 @@ public class Order
     private List<Ticket> Tickets { get; set; }
     private int Points => CalculatePoints();
 
-    public Order(int id, DateTime createdAt, TypeOfOrder type, OrderStatus status, List<Ticket> tickets,
-        Customer? customer = null, CashierRole? cashier = null, int? bonusPoints = null)
+    public Order(DateTime createdAt, TypeOfOrder orderType, OrderStatus status, List<Ticket> tickets,
+        Customer? customer = null, CashierRole? cashier = null, string? emailForBonusPoints = null)
     {
         if (createdAt > DateTime.Now)
             throw new ArgumentException("CreatedAt cannot be in the future.");
-
         if (tickets == null || tickets.Count == 0)
             throw new ArgumentException("Order must contain at least one ticket.");
 
-        // XOR
-        if (type == TypeOfOrder.Online)
+        // XOR validation
+        if (orderType == TypeOfOrder.Online)
         {
             if (customer == null)
                 throw new ArgumentException("Online order must have an associated customer.");
             if (cashier != null)
                 throw new ArgumentException("Online order cannot have a cashier.");
         }
-        else if (type == TypeOfOrder.BoxOffice)
+        else if (orderType == TypeOfOrder.BoxOffice)
         {
             if (cashier == null)
                 throw new ArgumentException("Box office order must have an associated cashier.");
-            
-            // customer is not required for BoxOffice
         }
 
-        Id = id;
+        Id = ++_counter;
         CreatedAt = createdAt;
-        TypeOfOrder = type;
+        TypeOfOrder = orderType;
         Status = status;
         Tickets = tickets;
         Customer = customer;
         Cashier = cashier;
-        BonusPoints = bonusPoints;
+        EmailForBonusPoints = emailForBonusPoints;
+
+        Customer?.AddOrder(this);
     }
 
     private int CalculatePoints()
@@ -72,57 +72,70 @@ public class Order
     public void ViewOrder()
     {
         Console.WriteLine("\n--- Order Details ---");
-        Console.WriteLine($"Order ID: {Id}");
-        Console.WriteLine($"Created: {CreatedAt}");
-        Console.WriteLine($"Type: {TypeOfOrder}");
-        Console.WriteLine($"Status: {Status}");
-        Console.WriteLine($"Points: {Points}");
-        Console.WriteLine($"Tickets: {Tickets.Count}");
+        Console.WriteLine("Order ID: " + Id);
+        Console.WriteLine("Created: " + CreatedAt);
+        Console.WriteLine("Type: " + TypeOfOrder);
+        Console.WriteLine("Status: " + Status);
+        Console.WriteLine("Tickets: " + Tickets.Count);
+        Console.WriteLine("Points: " + Points);
 
         if (TypeOfOrder == TypeOfOrder.Online)
         {
-            Console.WriteLine($"Customer: {Customer?.Email}");
+            Console.WriteLine("Customer: " + (Customer != null ? Customer.Email : "None"));
         }
         else
         {
-            Console.WriteLine($"Cashier: {Cashier.POSLogin}");
-            Console.WriteLine($"Linked Customer: {(Customer != null ? Customer.Email : "None")}");
+            Console.WriteLine("Cashier: " + (Cashier != null ? Cashier.POSLogin : "None"));
+            Console.WriteLine("Linked Customer Email: " + (EmailForBonusPoints ?? "None"));
         }
     }
 
     public void FinalizeOrder()
     {
         if (Status != OrderStatus.Pending)
-            throw new InvalidOperationException($"Cannot finalize order {Id}. Current status: {Status}");
+            throw new InvalidOperationException("Cannot finalize order " + Id + ". Current status: " + Status);
+        
+        TryLinkCustomerByEmail();
 
         Status = OrderStatus.Paid;
-        
-        if (Customer != null)
-        {
-            Customer.AddBonusPoints(Points);
-            Console.WriteLine($"Order {Id} finalized. {Points} bonus points added to customer.");
-        }
-        else
-        {
-            Console.WriteLine($"Order {Id} finalized (no linked customer).");
-        }
+        Console.WriteLine("Order " + Id + " finalized for " + (Customer != null ? Customer.Email : "unlinked customer") + ".");
     }
 
     public void RequestRefund()
     {
         if (Status != OrderStatus.Paid)
-            throw new InvalidOperationException($"Cannot refund order {Id}. Current status: {Status}");
+            throw new InvalidOperationException("Cannot refund order " + Id + ". Current status: " + Status);
 
         Status = OrderStatus.Refunded;
+        Console.WriteLine("Order " + Id + " refunded for " + (Customer != null ? Customer.Email : "unlinked customer") + ".");
+    }
+    
+    private void TryLinkCustomerByEmail()
+    {
+        if (Customer != null || string.IsNullOrWhiteSpace(EmailForBonusPoints))
+            return;
 
-        if (Customer != null)
+        Customer matched = null;
+
+        foreach (var c in Customer.All)
         {
-            Customer.RemoveBonusPoints(Points);
-            Console.WriteLine($"Order {Id} refunded. {Points} bonus points removed from customer.");
+            if (c.Email != null && c.Email.ToLower() == EmailForBonusPoints.ToLower())
+            {
+                matched = c;
+                break;
+            }
+        }
+
+        if (matched != null)
+        {
+            Customer = matched;
+            EmailForBonusPoints = matched.Email;
+            matched.AddOrder(this);
+            Console.WriteLine("Order " + Id + " automatically linked to " + matched.Email);
         }
         else
         {
-            Console.WriteLine($"Order {Id} refunded (no linked customer).");
+            Console.WriteLine("No customer found with email " + EmailForBonusPoints);
         }
     }
 }
