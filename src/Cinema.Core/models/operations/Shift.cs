@@ -5,6 +5,8 @@ namespace Cinema.Core.models.operations;
 
 public class Shift
 {
+    public static List<Shift> All { get; } = new();
+
     private DateTime StartTime { get; set; }
     private DateTime EndTime { get; set; }
     // we should add it to our CD
@@ -29,6 +31,8 @@ public class Shift
         EndTime = endTime;
         Cleaner = cleaner;
         Hall = hall;
+        All.Add(this);
+
     }
     
     public override string ToString()

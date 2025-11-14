@@ -1,9 +1,10 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
+using Cinema.Core.models.customers;
 using Cinema.Core.models.sales;
 
-namespace Cinema.Core.models.customers;
+namespace Cinema.Core.models;
 
 public class Customer : Person
 {
@@ -11,14 +12,16 @@ public class Customer : Person
     public string Email { get; private set; }
     public string HashPassword { get; private set; }
 
-    // public int BonusPoints
-    // {
-    //     get
-    //     {
-    //         return Orders.Sum(o => o.Points);
-    //     }
-    // }
+    public int BonusPoints
+    {
+        get
+        {
+            return Orders.Sum(o => o.Points);
+        }
+    }
     public List<Order> Orders { get; private set; } = new();
+    
+    
     // public List<Review> Reviews { get; private set; } = new();
 
     public Customer(string firstName, string lastName, DateOnly dateOfBirth,
@@ -42,10 +45,10 @@ public class Customer : Person
     }
 
 
-    // public int CheckBonusPoints()
-    // {
-    //     return BonusPoints;
-    // }
+    public int CheckBonusPoints()
+    {
+        return BonusPoints;
+    }
 
 
     public void AddOrder(Order order)
@@ -55,12 +58,12 @@ public class Customer : Person
         Orders.Add(order);
     }
 
-    // public void RemoveOrder(Order order)
-    // {
-    //     if (order == null)
-    //         throw new ArgumentNullException(nameof(order));
-    //     Orders.Remove(order);
-    // }
+    public void RemoveOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+        Orders.Remove(order);
+    }
 
 
     // public void AddReview(Review review)
