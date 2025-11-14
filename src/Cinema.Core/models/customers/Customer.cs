@@ -1,16 +1,13 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
+using Cinema.Core.models.sales;
 
 namespace Cinema.Core.models;
 
 public class Customer : Person
 {
-    
-    private static readonly List<Customer> _customers = new();
-
-    public static IReadOnlyCollection<Customer> All => _customers.AsReadOnly();
-    
+    public static List<Customer> All { get; } = new();
     public string Email { get; private set; }
     public string HashPassword { get; private set; }
 
@@ -43,14 +40,13 @@ public class Customer : Person
 
         Email = email;
         HashPassword = HashPasswordEncoder(rawPassword);
-        _customers.Add(this);
     }
 
 
-    public int CheckBonusPoints()
-    {
-        return BonusPoints;
-    }
+    // public int CheckBonusPoints()
+    // {
+    //     return BonusPoints;
+    // }
 
 
     public void AddOrder(Order order)
@@ -60,12 +56,12 @@ public class Customer : Person
         Orders.Add(order);
     }
 
-    public void RemoveOrder(Order order)
-    {
-        if (order == null)
-            throw new ArgumentNullException(nameof(order));
-        Orders.Remove(order);
-    }
+    // public void RemoveOrder(Order order)
+    // {
+    //     if (order == null)
+    //         throw new ArgumentNullException(nameof(order));
+    //     Orders.Remove(order);
+    // }
 
 
     // public void AddReview(Review review)

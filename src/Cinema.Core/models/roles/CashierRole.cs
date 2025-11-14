@@ -1,6 +1,4 @@
-using Cinema.Core.models;
-
-namespace Cinema.Core.Models;
+namespace Cinema.Core.models.roles;
 
 public sealed class CashierRole : EmployeeRole
 {

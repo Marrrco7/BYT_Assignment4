@@ -1,6 +1,7 @@
-using Cinema.Core.models;
+using Cinema.Core.models.contract;
+using Cinema.Core.models.roles;
 
-namespace Cinema.Core.Models;
+namespace Cinema.Core.models.customers;
 
 public sealed class Employee : Person
 {

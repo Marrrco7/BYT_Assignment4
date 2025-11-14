@@ -1,5 +1,3 @@
-using Cinema.Core.Models;
-
 namespace Cinema.Core.models;
 
 public enum OrderStatus
@@ -31,11 +29,13 @@ public class Order
     // private List<Ticket> Tickets { get; set; }
     // XOR
     private Customer? Customer { get; set; }
-    private Employee? Cashier { get; set; }
+    private CashierRole? Cashier { get; set; }
 
+    private List<Ticket> Tickets { get; set; }
+    private int Points => CalculatePoints();
 
     public Order(DateTime createdAt, TypeOfOrder orderType, OrderStatus status, List<Ticket> tickets,
-        Customer? customer = null, Employee? cashier = null, string? emailForBonusPoints = null)
+        Customer? customer = null, CashierRole? cashier = null, string? emailForBonusPoints = null)
     {
         if (createdAt > DateTime.Now)
             throw new ArgumentException("CreatedAt cannot be in the future.");
@@ -63,20 +63,20 @@ public class Order
         CreatedAt = createdAt;
         TypeOfOrder = orderType;
         Status = status;
-        // Tickets = tickets;
+        Tickets = tickets;
         Customer = customer;
         Cashier = cashier;
         EmailForBonusPoints = emailForBonusPoints;
         All.Add(this);
 
-        // Customer?.AddOrder(this);
+        Customer?.AddOrder(this);
     }
 
-    // private int CalculatePoints()
-    // {
-    //     // based on price and amount of tickets?
-    //     return Tickets.Count * 10;
-    // }
+    private int CalculatePoints()
+    {
+        // based on price and amount of tickets?
+        return Tickets.Count * 10; 
+    }
 
     public void ViewOrder()
     {
@@ -85,7 +85,7 @@ public class Order
         Console.WriteLine("Created: " + CreatedAt);
         Console.WriteLine("Type: " + TypeOfOrder);
         Console.WriteLine("Status: " + Status);
-        // Console.WriteLine("Tickets: " + Tickets.Count);
+        Console.WriteLine("Tickets: " + Tickets.Count);
         Console.WriteLine("Points: " + Points);
 
         if (TypeOfOrder == TypeOfOrder.Online)
@@ -107,12 +107,11 @@ public class Order
     {
         if (Status != OrderStatus.Pending)
             throw new InvalidOperationException("Cannot finalize order " + Id + ". Current status: " + Status);
-
-        AssignOrderToTheCustomerByEmail();
+        
+        TryLinkCustomerByEmail();
 
         Status = OrderStatus.Paid;
-        Console.WriteLine("Order " + Id + " finalized for " +
-                          (Customer != null ? Customer.Email : "unlinked customer") + ".");
+        Console.WriteLine("Order " + Id + " finalized for " + (Customer != null ? Customer.Email : "unlinked customer") + ".");
     }
 
     public void RequestRefund()
@@ -121,11 +120,10 @@ public class Order
             throw new InvalidOperationException("Cannot refund order " + Id + ". Current status: " + Status);
 
         Status = OrderStatus.Refunded;
-        Console.WriteLine("Order " + Id + " refunded for " + (Customer != null ? Customer.Email : "unlinked customer") +
-                          ".");
+        Console.WriteLine("Order " + Id + " refunded for " + (Customer != null ? Customer.Email : "unlinked customer") + ".");
     }
-
-    private void AssignOrderToTheCustomerByEmail()
+    
+    private void TryLinkCustomerByEmail()
     {
         if (Customer != null || string.IsNullOrWhiteSpace(EmailForBonusPoints))
             return;

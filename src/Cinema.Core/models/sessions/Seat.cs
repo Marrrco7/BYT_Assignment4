@@ -1,0 +1,48 @@
+namespace Cinema.Core.models.sessions
+{
+    public enum SeatType
+    {
+        Normal,
+        Vip
+    }
+
+    public class Seat
+    {
+        public static List<Seat> All { get; } = new();
+
+        private static int _counter = 0;
+
+        public int Id { get; }
+
+        public SeatType Type { get; private set; }
+
+        public decimal NormalPrice { get; private set; }
+
+        public decimal FinalSeatPrice =>
+            Type == SeatType.Vip ? NormalPrice * TicketMultiplier : NormalPrice;
+        public bool IsAccessible { get; private set; }
+
+        public decimal TicketMultiplier { get; private set; } = 1.8m;
+
+        public Seat(
+            SeatType type,
+            decimal normalPrice,
+            bool isAccessible,
+            decimal? ticketMultiplier = null)
+        {
+            if (normalPrice < 0)
+                throw new ArgumentException("Price cannot be negative.", nameof(normalPrice));
+
+            Id = ++_counter;
+            Type = type;
+            NormalPrice = normalPrice;
+            IsAccessible = isAccessible;
+
+            if (ticketMultiplier.HasValue)
+                TicketMultiplier = ticketMultiplier.Value;
+
+            All.Add(this);
+        }
+        
+    }
+}

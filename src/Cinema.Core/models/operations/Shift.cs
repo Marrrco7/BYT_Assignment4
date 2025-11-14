@@ -1,6 +1,7 @@
-using Cinema.Core.Models;
+using Cinema.Core.models.roles;
+using Cinema.Core.models.sessions;
 
-namespace Cinema.Core.models;
+namespace Cinema.Core.models.operations;
 
 public class Shift
 {
