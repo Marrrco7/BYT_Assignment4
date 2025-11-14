@@ -151,17 +151,17 @@ namespace Cinema.Tests.Models
         [Test]
         public void SaveSession_ShouldAddSessionToExtent()
         {
-            // Arrange - Create session but clear extent to test SaveSession in isolation
-            var session = CreateTestSession();
+            // Arrange - Clear any sessions added by constructor or other tests
+            var session = new Session(_testHall, _testMovie, DateTime.Now.AddDays(1), "English");
             Session.All.Clear();
-            var countBefore = Session.All.Count;
+            var countBefore = Session.All.Count; // Should be 0
 
-            // Act - Now test SaveSession method itself
+            // Act - SaveSession should add it back
             session.SaveSession();
 
             // Assert - Should now have 1 session
             Assert.That(Session.All.Count, Is.EqualTo(countBefore + 1));
-            Assert.That(Session.All, Contains.Item(session), "Session should be in extent after SaveSession");
+            Assert.That(Session.All, Contains.Item(session), "SaveSession should add session to extent");
         }
 
         private Session CreateTestSession()

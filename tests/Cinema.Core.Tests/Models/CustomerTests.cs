@@ -171,6 +171,8 @@ namespace Cinema.Tests.Models
             var seat = new Seat(SeatType.Normal, 10.00m, false);
             var ticket = new Ticket(session, seat);
 
+            Order.All.Clear();
+
             return new Order(
                 DateTime.Now,
                 TypeOfOrder.Online,

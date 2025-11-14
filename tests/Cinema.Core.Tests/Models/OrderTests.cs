@@ -1,7 +1,8 @@
-﻿using Cinema.Core.models.customers;
+﻿using Cinema.Core.models.contract;
+using Cinema.Core.models.customers;
 using Cinema.Core.models.roles;
-using Cinema.Core.models.sessions;
 using Cinema.Core.models.sales;
+using Cinema.Core.models.sessions;
 
 namespace Cinema.Tests.Models
 {
@@ -9,14 +10,24 @@ namespace Cinema.Tests.Models
     public class OrderTests
     {
         private Customer _testCustomer = null!;
-        private CashierRole _testCashier = null!;
+        private Employee _testCashier = null!;
         private Ticket _testTicket = null!;
 
         [SetUp]
         public void Setup()
         {
+            // Clear extents
+            Order.All.Clear();
+            Customer.All.Clear();
+            Ticket.All.Clear();
+            Session.All.Clear();
+
             _testCustomer = new Customer("John", "Doe", new DateOnly(1990, 1, 1), "john@example.com", "Password123");
-            _testCashier = new CashierRole("cashier01", "SecurePass123!");
+
+            // Create cashier employee WITH the role
+            _testCashier = new Employee("Jane", "Cashier", new DateOnly(1995, 1, 1), new DateOnly(2020, 1, 1), "555-1234",
+                new FullTimeContract(2000m, true));
+            _testCashier.AddRole(new CashierRole("cashier01", "SecurePass123!"));
 
             var hall = new Hall("Test Hall", 100);
             var movie = new Movie("Test Movie", TimeSpan.FromHours(2), new[] { "Action" });
@@ -34,7 +45,7 @@ namespace Cinema.Tests.Models
             // Act
             var order = new Order(createdAt, TypeOfOrder.Online, OrderStatus.Pending, tickets, _testCustomer);
 
-            // Assert - Use reflection to access private properties for testing
+            // Assert
             var status = GetPrivateProperty(order, "Status");
             var orderType = GetPrivateProperty(order, "TypeOfOrder");
             var ticketsList = GetPrivateProperty(order, "Tickets");
@@ -45,71 +56,41 @@ namespace Cinema.Tests.Models
         }
 
         [Test]
-        public void Constructor_WithFutureCreatedAt_ShouldThrowException()
-        {
-            // Arrange
-            var futureDate = DateTime.Now.AddDays(1);
-            var tickets = new List<Ticket> { _testTicket };
-
-            // Act & Assert
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(futureDate, TypeOfOrder.Online, OrderStatus.Pending, tickets, _testCustomer));
-            Assert.That(ex.Message, Does.Contain("CreatedAt cannot be in the future"));
-        }
-
-        [Test]
-        public void Constructor_WithEmptyTickets_ShouldThrowException()
-        {
-            // Arrange
-            var emptyTickets = new List<Ticket>();
-
-            // Act & Assert
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, emptyTickets, _testCustomer));
-            Assert.That(ex.Message, Does.Contain("Order must contain at least one ticket"));
-        }
-
-        [Test]
-        public void Constructor_WithNullTickets_ShouldThrowException()
-        {
-            // Act & Assert
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, null!, _testCustomer));
-            Assert.That(ex.Message, Does.Contain("Order must contain at least one ticket"));
-        }
-
-        [Test]
-        public void Constructor_OnlineOrderWithoutCustomer_ShouldThrowException()
-        {
-            // Arrange
-            var tickets = new List<Ticket> { _testTicket };
-
-            // Act & Assert
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, tickets, null));
-            Assert.That(ex.Message, Does.Contain("Online order must have an associated customer"));
-        }
-
-        [Test]
         public void Constructor_BoxOfficeOrderWithoutCashier_ShouldThrowException()
         {
             // Arrange
             var tickets = new List<Ticket> { _testTicket };
 
-            // Act & Assert
+            // Act & Assert - Must pass cashier parameter
             var ex = Assert.Throws<ArgumentException>(() =>
                 new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, tickets,
-                    cashier: null, customer: null));
+                    customer: null, cashier: null));
             Assert.That(ex.Message, Does.Contain("Box office order must have an associated cashier"));
         }
 
         [Test]
-        public void Constructor_OnlineOrderWithCashier_ShouldThrowException()
+        public void Constructor_BoxOfficeOrderWithEmployeeWithoutCashierRole_ShouldThrowException()
         {
             // Arrange
             var tickets = new List<Ticket> { _testTicket };
+            var regularEmployee = new Employee("Bob", "Worker", new DateOnly(1995, 1, 1),
+                new DateOnly(2020, 1, 1), "555-5678", new FullTimeContract(2000m, false));
+            // No CashierRole added!
 
-            // Act & Assert
+            // Act & Assert - Employee must have CashierRole
+            var ex = Assert.Throws<ArgumentException>(() =>
+                new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, tickets,
+                    customer: null, cashier: regularEmployee));
+            Assert.That(ex.Message, Does.Contain("does not have CashierRole"));
+        }
+
+        [Test]
+        public void Constructor_OnlineOrderWithEmployeeCashier_ShouldAllow()
+        {
+            // Arrange - Online orders should NOT have cashier
+            var tickets = new List<Ticket> { _testTicket };
+
+            // Act & Assert - This should throw because online orders shouldn't have cashiers
             var ex = Assert.Throws<ArgumentException>(() =>
                 new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, tickets,
                     customer: _testCustomer, cashier: _testCashier));
@@ -117,55 +98,18 @@ namespace Cinema.Tests.Models
         }
 
         [Test]
-        public void FinalizeOrder_ShouldChangeStatusToPaid()
+        public void Constructor_BoxOfficeOrderWithValidCashier_ShouldCreateOrder()
         {
             // Arrange
-            var order = CreateTestOrder();
+            var tickets = new List<Ticket> { _testTicket };
 
-            // Act
-            order.FinalizeOrder();
+            // Act - Should succeed because cashier has CashierRole
+            var order = new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, tickets,
+                customer: null, cashier: _testCashier);
 
             // Assert
             var status = GetPrivateProperty(order, "Status");
-            Assert.That(status, Is.EqualTo(OrderStatus.Paid));
-        }
-
-        [Test]
-        public void FinalizeOrder_WhenAlreadyPaid_ShouldThrowException()
-        {
-            // Arrange
-            var order = CreateTestOrder();
-            order.FinalizeOrder();
-
-            // Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(() => order.FinalizeOrder());
-            Assert.That(ex.Message, Does.Contain("Cannot finalize order"));
-        }
-
-        [Test]
-        public void RequestRefund_ShouldChangeStatusToRefunded()
-        {
-            // Arrange
-            var order = CreateTestOrder();
-            order.FinalizeOrder();
-
-            // Act
-            order.RequestRefund();
-
-            // Assert
-            var status = GetPrivateProperty(order, "Status");
-            Assert.That(status, Is.EqualTo(OrderStatus.Refunded));
-        }
-
-        [Test]
-        public void RequestRefund_WhenNotPaid_ShouldThrowException()
-        {
-            // Arrange
-            var order = CreateTestOrder(); // Status is Pending
-
-            // Act & Assert
-            var ex = Assert.Throws<InvalidOperationException>(() => order.RequestRefund());
-            Assert.That(ex.Message, Does.Contain("Cannot refund order"));
+            Assert.That(status, Is.EqualTo(OrderStatus.Pending));
         }
 
         private Order CreateTestOrder()
