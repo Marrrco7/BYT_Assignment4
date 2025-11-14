@@ -6,6 +6,8 @@ public class Hall
 {
     private static int _counter = 0;
     
+    public static List<Hall> All { get; } = new();
+    
     private int Id { get;}
     
     public string Name { get; private set; }
@@ -31,7 +33,11 @@ public class Hall
         Id = ++_counter;
         Name = name;
         this.MaxCapacity = maxCapacity;
+        
+        All.Add(this);
     }
+    
+    public static IReadOnlyList<Hall> ListOfHalls() => All.AsReadOnly();
     
     public void AddSeat(int seatNumber, Seat seat)
     {
