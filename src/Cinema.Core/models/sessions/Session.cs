@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Cinema.Core.models;
-
-namespace Cinema.Core.models.session
+namespace Cinema.Core.models.sessions
 {
     public enum SessionStatus
     {

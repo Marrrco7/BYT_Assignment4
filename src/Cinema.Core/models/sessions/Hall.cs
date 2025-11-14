@@ -1,6 +1,6 @@
 using Cinema.Core.models.operations;
 
-namespace Cinema.Core.models.session;
+namespace Cinema.Core.models.sessions;
 
 public class Hall
 {

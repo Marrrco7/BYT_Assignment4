@@ -1,4 +1,4 @@
-using Cinema.Core.models.session;
+using Cinema.Core.models.sessions;
 
 namespace Cinema.Core.models.operations;
 

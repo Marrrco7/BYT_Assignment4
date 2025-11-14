@@ -1,4 +1,4 @@
-namespace Cinema.Core.models.session
+namespace Cinema.Core.models.sessions
 {
     public class Movie
     {
