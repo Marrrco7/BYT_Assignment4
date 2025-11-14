@@ -1,8 +1,8 @@
 ﻿using Cinema.Core.models.contract;
 using Cinema.Core.models.customers;
 using Cinema.Core.models.roles;
-using Cinema.Core.models.sales;
 using Cinema.Core.models.sessions;
+using Cinema.Core.models;
 
 namespace Cinema.Tests.Models
 {
@@ -12,6 +12,13 @@ namespace Cinema.Tests.Models
         private Customer _testCustomer = null!;
         private Employee _testCashier = null!;
         private Ticket _testTicket = null!;
+
+        private List<Ticket> GetPrivateTickets(Order order)
+        {
+            return (List<Ticket>)order.GetType()
+                .GetProperty("Tickets", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .GetValue(order)!;
+        }
 
         [SetUp]
         public void Setup()
@@ -45,14 +52,10 @@ namespace Cinema.Tests.Models
             // Act
             var order = new Order(createdAt, TypeOfOrder.Online, OrderStatus.Pending, tickets, _testCustomer);
 
-            // Assert
-            var status = GetPrivateProperty(order, "Status");
-            var orderType = GetPrivateProperty(order, "TypeOfOrder");
-            var ticketsList = GetPrivateProperty(order, "Tickets");
-
-            Assert.That(status, Is.EqualTo(OrderStatus.Pending));
-            Assert.That(orderType, Is.EqualTo(TypeOfOrder.Online));
-            Assert.That(ticketsList, Is.EqualTo(tickets));
+            // Assert - Use reflection helper for private Tickets property
+            Assert.That(order.Status, Is.EqualTo(OrderStatus.Pending));
+            Assert.That(order.TypeOfOrder, Is.EqualTo(TypeOfOrder.Online));
+            Assert.That(GetPrivateTickets(order), Is.EqualTo(tickets));
         }
 
         [Test]
@@ -103,13 +106,12 @@ namespace Cinema.Tests.Models
             // Arrange
             var tickets = new List<Ticket> { _testTicket };
 
-            // Act - Should succeed because cashier has CashierRole
+            // Act
             var order = new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, tickets,
                 customer: null, cashier: _testCashier);
 
-            // Assert
-            var status = GetPrivateProperty(order, "Status");
-            Assert.That(status, Is.EqualTo(OrderStatus.Pending));
+            // Assert - Direct property access
+            Assert.That(order.Status, Is.EqualTo(OrderStatus.Pending));
         }
 
         private Order CreateTestOrder()

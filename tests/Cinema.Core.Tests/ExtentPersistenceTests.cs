@@ -1,5 +1,5 @@
-﻿using Cinema.Core.models.customers;
-using Cinema.Core.models.sessions;
+﻿using Cinema.Core.models.sessions;
+using Cinema.Core.models;
 
 namespace Cinema.Tests
 {
