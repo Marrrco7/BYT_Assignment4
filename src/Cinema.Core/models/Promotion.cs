@@ -1,13 +1,14 @@
 namespace Cinema.Core.models
 {
-
     public class Promotion
     {
+        public static List<Promotion> All { get; } = new();
+
         private DateTime ValidFrom { get; set; }
         private DateTime ValidTo { get; set; }
         private string Description { get; set; }
         private decimal DiscountAmount { get; set; }
-        
+
         public Promotion(DateTime validFrom, DateTime validTo, string description, decimal discountAmount)
         {
             if (validFrom > validTo)
@@ -19,8 +20,10 @@ namespace Cinema.Core.models
             ValidTo = validTo;
             Description = description;
             DiscountAmount = discountAmount;
+            All.Add(this);
+
         }
-        
+
         public bool IsActive()
         {
             var today = DateTime.Today;
