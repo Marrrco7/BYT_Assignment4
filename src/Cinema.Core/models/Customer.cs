@@ -6,17 +6,23 @@ namespace Cinema.Core.models;
 
 public class Customer : Person
 {
+    
+    private static readonly List<Customer> _customers = new();
+
+    public static IReadOnlyCollection<Customer> All => _customers.AsReadOnly();
+    
     public string Email { get; private set; }
     public string HashPassword { get; private set; }
 
-    // public int BonusPoints
-    // {
-    //     get
-    //     {
-    //         return Orders.Sum(o => o.Points);
-    //     }
-    // }
-    // public List<Order> Orders { get; private set; } = new();
+    public int BonusPoints
+    {
+        get
+        {
+            return Orders.Sum(o => o.Points);
+        }
+    }
+    public List<Order> Orders { get; private set; } = new();
+    
     // public List<Review> Reviews { get; private set; } = new();
 
     public Customer(string firstName, string lastName, DateOnly dateOfBirth,
@@ -37,28 +43,29 @@ public class Customer : Person
 
         Email = email;
         HashPassword = HashPasswordEncoder(rawPassword);
+        _customers.Add(this);
     }
 
 
-    // public int CheckBonusPoints()
-    // {
-    //     return BonusPoints;
-    // }
+    public int CheckBonusPoints()
+    {
+        return BonusPoints;
+    }
 
 
-    // public void AddOrder(Order order)
-    // {
-    //     if (order == null)
-    //         throw new ArgumentNullException(nameof(order));
-    //     Orders.Add(order);
-    // }
+    public void AddOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+        Orders.Add(order);
+    }
 
-    // public void RemoveOrder(Order order)
-    // {
-    //     if (order == null)
-    //         throw new ArgumentNullException(nameof(order));
-    //     Orders.Remove(order);
-    // }
+    public void RemoveOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+        Orders.Remove(order);
+    }
 
 
     // public void AddReview(Review review)
