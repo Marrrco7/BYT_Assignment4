@@ -1,4 +1,6 @@
-namespace Cinema.Core.models;
+using Cinema.Core.models.sessions;
+
+namespace Cinema.Core.models.operations;
 
 public enum EquipmentType
 {

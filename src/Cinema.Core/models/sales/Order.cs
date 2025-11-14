@@ -1,4 +1,8 @@
-namespace Cinema.Core.models;
+using Cinema.Core.models.customers;
+using Cinema.Core.models.roles;
+using Cinema.Core.models.sessions;
+
+namespace Cinema.Core.models.sales;
 
 public enum OrderStatus
 {

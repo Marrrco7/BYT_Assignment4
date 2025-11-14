@@ -1,4 +1,4 @@
-namespace Cinema.Core.models;
+namespace Cinema.Core.models.customers;
 
 public abstract class Person
 {
