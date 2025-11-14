@@ -39,6 +39,8 @@ public class Customer : Person
 
         Email = email;
         HashPassword = HashPasswordEncoder(rawPassword);
+
+        All.Add(this);
     }
 
 

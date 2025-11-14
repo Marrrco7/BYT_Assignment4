@@ -40,6 +40,8 @@ namespace Cinema.Core.models.sessions
             StartAt = startAt;
             Language = language;
             Status = status;
+
+            All.Add(this);
         }
         
         public static IReadOnlyList<Session> ListOfSessions()
