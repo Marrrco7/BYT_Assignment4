@@ -11,16 +11,17 @@ public class Customer : Person
 {
     public static List<Customer> All { get; } = new();
 
-    public string Email { get; set; }
-    public string HashPassword { get; set; }
+    public string Email { get; private set; }
+    public string HashPassword { get; private set; }
 
     [JsonIgnore]
-    public List<Order> Orders { get; private set; } = new();
+    public List<Order> Orders { get; } = new();
 
     [JsonIgnore]
     public int BonusPoints => Orders.Sum(o => o.Points);
 
-    public  Customer(
+
+    public Customer(
         string firstName,
         string lastName,
         DateOnly dateOfBirth,
@@ -28,36 +29,20 @@ public class Customer : Person
         string hashPassword)
         : base(firstName, lastName, dateOfBirth)
     {
-        Email = email;
-        HashPassword = hashPassword;
-
-        All.Add(this);
-    }
-
-    public static Customer Create(
-        string firstName,
-        string lastName,
-        DateOnly dateOfBirth,
-        string email,
-        string rawPassword)
-    {
         if (string.IsNullOrWhiteSpace(email))
             throw new ArgumentException("Email cannot be empty.", nameof(email));
 
         if (!EmailIsValidStatic(email))
             throw new ArgumentException("Invalid email format.", nameof(email));
 
-        if (string.IsNullOrWhiteSpace(rawPassword))
-            throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
+        if (string.IsNullOrWhiteSpace(hashPassword))
+            throw new ArgumentException("Password hash cannot be empty.", nameof(hashPassword));
 
-        if (rawPassword.Length < 6)
-            throw new ArgumentException("Password must be at least 6 characters long.", nameof(rawPassword));
+        Email = email;
+        HashPassword = hashPassword;
 
-        var hash = HashPasswordEncoderStatic(rawPassword);
-
-        return new Customer(firstName, lastName, dateOfBirth, email, hash);
+        All.Add(this);
     }
-
 
     public void AddOrder(Order order)
     {
@@ -76,10 +61,16 @@ public class Customer : Person
     public int CheckBonusPoints() => BonusPoints;
 
 
-    private static string HashPasswordEncoderStatic(string password)
+    public static string HashRawPassword(string password)
     {
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password cannot be empty.", nameof(password));
+
+        if (password.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters long.", nameof(password));
+
         using var sha256 = SHA256.Create();
-        byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
         return Convert.ToBase64String(bytes);
     }
 
@@ -98,13 +89,11 @@ public class Customer : Person
     
     public static void SaveToFile(string filePath)
     {
-        var options = new JsonSerializerOptions
+        var json = JsonSerializer.Serialize(All, new JsonSerializerOptions
         {
             WriteIndented = true,
-            PropertyNameCaseInsensitive = true
-        };
+        });
 
-        var json = JsonSerializer.Serialize(All, options);
         File.WriteAllText(filePath, json);
     }
 
@@ -114,13 +103,7 @@ public class Customer : Person
             return;
 
         var json = File.ReadAllText(filePath);
-
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        var customers = JsonSerializer.Deserialize<List<Customer>>(json, options);
+        var customers = JsonSerializer.Deserialize<List<Customer>>(json);
 
         if (customers != null)
         {
@@ -129,3 +112,4 @@ public class Customer : Person
         }
     }
 }
+

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cinema.Core.models.contract;
 using Cinema.Core.models.roles;
 
@@ -5,17 +7,17 @@ namespace Cinema.Core.models.customers;
 
 public sealed class Employee : Person
 {
+    public static List<Employee> All { get; } = new();
     public DateOnly HiringDate { get; private set; }
     public string PhoneNumber { get; private set; }
-    
-    //one contract 
     public EmploymentContract Contract { get; private set; }
-    
-    //many roles 
     public List<EmployeeRole> Roles { get; } = new();
 
-    public Employee? Supervisor { get; private set; }          
-    public List<Employee> Subordinates { get; private set; } = new(); 
+    [JsonIgnore]
+    public Employee? Supervisor { get; private set; }
+
+    [JsonIgnore]
+    public List<Employee> Subordinates { get; private set; } = new();
 
     public Employee(
         string firstName,
@@ -26,15 +28,19 @@ public sealed class Employee : Person
         EmploymentContract contract)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (hiringDate > DateOnly.FromDateTime(DateTime.Now))
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (hiringDate > today)
             throw new ArgumentException("Hiring date cannot be in the future.", nameof(hiringDate));
 
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
 
+        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
+
         HiringDate = hiringDate;
         PhoneNumber = phoneNumber;
-        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
+
+        All.Add(this);
     }
 
     public void ChangeContract(EmploymentContract newContract)
@@ -47,7 +53,10 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        Roles.Add(role);
+        if (!Roles.Contains(role))
+        {
+            Roles.Add(role);
+        }
     }
 
     public void RemoveRole(EmployeeRole role)
@@ -72,7 +81,7 @@ public sealed class Employee : Person
             employee.Supervisor = this;
         }
     }
-    
+
     public void RemoveSubordinate(Employee employee)
     {
         if (employee == null)
@@ -96,7 +105,7 @@ public sealed class Employee : Person
         if (!supervisor.Subordinates.Contains(this))
             supervisor.Subordinates.Add(this);
     }
-    
+
     public void RemoveSupervisor()
     {
         if (Supervisor == null)
@@ -105,6 +114,37 @@ public sealed class Employee : Person
         Supervisor.Subordinates.Remove(this);
         Supervisor = null;
     }
-    
 
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var employees = JsonSerializer.Deserialize<List<Employee>>(json, options);
+
+        if (employees != null)
+        {
+            All.Clear();
+            All.AddRange(employees);
+        }
+    }
 }
