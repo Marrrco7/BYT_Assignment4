@@ -5,7 +5,7 @@ public abstract class Person
     
     public string FirstName { get; set; } 
     public string LastName { get; set; }
-    private DateOnly DateOfBirth { get; set; }
+    public  DateOnly DateOfBirth { get; set; }
     
     public  int Age 
     {

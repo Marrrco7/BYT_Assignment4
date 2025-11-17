@@ -1,55 +1,62 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Cinema.Core.models;
 using Cinema.Core.models.customers;
-using Cinema.Core.models.sales;
 
-namespace Cinema.Core.models;
 
 public class Customer : Person
 {
     public static List<Customer> All { get; } = new();
-    public string Email { get; private set; }
-    public string HashPassword { get; private set; }
 
-    public int BonusPoints
-    {
-        get
-        {
-            return Orders.Sum(o => o.Points);
-        }
-    }
+    public string Email { get; set; }
+    public string HashPassword { get; set; }
+
+    [JsonIgnore]
     public List<Order> Orders { get; private set; } = new();
-    
-    
-    // public List<Review> Reviews { get; private set; } = new();
 
-    public Customer(string firstName, string lastName, DateOnly dateOfBirth,
-        string email, string rawPassword)
+    [JsonIgnore]
+    public int BonusPoints => Orders.Sum(o => o.Points);
+
+
+    public Customer(
+        string firstName,
+        string lastName,
+        DateOnly dateOfBirth,
+        string email,
+        string hashPassword)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email cannot be empty.");
-
-        if (!EmailIsValid(email))
-            throw new ArgumentException("Invalid email format.");
-
-        if (string.IsNullOrWhiteSpace(rawPassword))
-            throw new ArgumentException("Password cannot be empty.");
-
-        if (rawPassword.Length < 6)
-            throw new ArgumentException("Password must be at least 6 characters long.");
-
         Email = email;
-        HashPassword = HashPasswordEncoder(rawPassword);
+        HashPassword = hashPassword;
 
         All.Add(this);
     }
 
-
-    public int CheckBonusPoints()
+    public static Customer Create(
+        string firstName,
+        string lastName,
+        DateOnly dateOfBirth,
+        string email,
+        string rawPassword)
     {
-        return BonusPoints;
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
+
+        if (!EmailIsValidStatic(email))
+            throw new ArgumentException("Invalid email format.", nameof(email));
+
+        if (string.IsNullOrWhiteSpace(rawPassword))
+            throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
+
+        if (rawPassword.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters long.", nameof(rawPassword));
+
+        var hash = HashPasswordEncoderStatic(rawPassword);
+
+        return new Customer(firstName, lastName, dateOfBirth, email, hash);
     }
 
 
@@ -67,33 +74,17 @@ public class Customer : Person
         Orders.Remove(order);
     }
 
+    public int CheckBonusPoints() => BonusPoints;
 
-    // public void AddReview(Review review)
-    // {
-    //     if (review == null)
-    //         throw new ArgumentNullException(nameof(review));
-    //
-    //     Reviews.Add(review);
-    // }
 
-    // public void RemoveReview(Review review)
-    // {
-    //     if (review == null)
-    //         throw new ArgumentNullException(nameof(review)); 
-    //
-    //     Reviews.Remove(review);
-    // }
-    
-    private string HashPasswordEncoder(string password)
+    private static string HashPasswordEncoderStatic(string password)
     {
-        using (SHA256 sha256 = SHA256.Create())
-        {
-            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(bytes);
-        }
+        using var sha256 = SHA256.Create();
+        byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
     }
 
-    private bool EmailIsValid(string email)
+    private static bool EmailIsValidStatic(string email)
     {
         try
         {
@@ -103,6 +94,39 @@ public class Customer : Person
         catch
         {
             return false;
+        }
+    }
+    
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var customers = JsonSerializer.Deserialize<List<Customer>>(json, options);
+
+        if (customers != null)
+        {
+            All.Clear();
+            All.AddRange(customers);
         }
     }
 }
