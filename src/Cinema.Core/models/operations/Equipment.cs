@@ -18,21 +18,21 @@ public class Equipment
     private EquipmentType Type { get; set; }
     private DateTime DateOfLastCheckUp { get; set; }
     
-    // private Hall Hall { get; set; }
+    private Hall Hall { get; set; }
     
-    // public Equipment(EquipmentType type, DateTime dateOfLastCheckUp, Hall hall)
-    // {
-    //     if (dateOfLastCheckUp > DateTime.Now)
-    //         throw new ArgumentException("Date of last check-up cannot be in the future");
-    //     
-    //     Type = type;
-    //     DateOfLastCheckUp = dateOfLastCheckUp;
-    //     Hall = hall ?? throw new ArgumentNullException(nameof(hall), "Equipment must belong to a hall");
-    //
-    //     // we should implement this method in Hall class
-    //     hall.AddEquipment(this);
-    // All.Add(this);
-    // }
+    public Equipment(EquipmentType type, DateTime dateOfLastCheckUp, Hall hall)
+    {
+        if (dateOfLastCheckUp > DateTime.Now)
+            throw new ArgumentException("Date of last check-up cannot be in the future");
+        
+        Type = type;
+        DateOfLastCheckUp = dateOfLastCheckUp;
+        Hall = hall ?? throw new ArgumentNullException(nameof(hall), "Equipment must belong to a hall");
+    
+        // we should implement this method in Hall class
+        hall.AddEquipment(this);
+    All.Add(this);
+    }
     
     public void UpdateLastCheckUpDate(DateTime newDate)
     {

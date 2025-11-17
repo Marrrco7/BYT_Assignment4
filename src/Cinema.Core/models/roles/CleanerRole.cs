@@ -1,3 +1,5 @@
+using Cinema.Core.models.operations;
+
 namespace Cinema.Core.models.roles;
 
 public sealed class CleanerRole : EmployeeRole
@@ -34,21 +36,21 @@ public sealed class CleanerRole : EmployeeRole
     // from Shift (end - start )
     //    DateAndTime - startTime and EndTime (note for the Shift class )
 
-    // public TimeSpan CalculateAverageCleaningTime(List<Shift> shifts)
-    // {
-    //     if (shifts == null || shifts.Count == 0)
-    //         throw new ArgumentException("Shift list cannot be null or empty.", nameof(shifts));
-    //
-    //     double totalMinutes = 0;
-    //
-    //     foreach (var shift in shifts)
-    //     {
-    //         totalMinutes += shift.Duration.TotalMinutes;
-    //     }
-    //
-    //     var avgMinutes = totalMinutes / shifts.Count;
-    //     AvgCleaningTime = TimeSpan.FromMinutes(avgMinutes);
-    //
-    //     return AvgCleaningTime;
-    // }
+    public TimeSpan CalculateAverageCleaningTime(List<Shift> shifts)
+    {
+        if (shifts == null || shifts.Count == 0)
+            throw new ArgumentException("Shift list cannot be null or empty.", nameof(shifts));
+    
+        double totalMinutes = 0;
+    
+        foreach (var shift in shifts)
+        {
+            totalMinutes += shift.Duration.TotalMinutes;
+        }
+    
+        var avgMinutes = totalMinutes / shifts.Count;
+        AvgCleaningTime = TimeSpan.FromMinutes(avgMinutes);
+    
+        return AvgCleaningTime;
+    }
 }
