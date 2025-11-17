@@ -89,7 +89,6 @@ public class Customer : Person
         _orders.Remove(order);
     }
 
-    public int CheckBonusPoints() => BonusPoints;
 
     
     private string HashedRawPassword(string password)
