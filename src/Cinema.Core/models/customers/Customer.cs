@@ -6,62 +6,93 @@ using System.Text.Json.Serialization;
 using Cinema.Core.models;
 using Cinema.Core.models.customers;
 
-
 public class Customer : Person
 {
-    public static List<Customer> All { get; } = new();
+    private static readonly List<Customer> _all = new();
+    public static IReadOnlyList<Customer> All => _all.AsReadOnly();
 
-    public string Email { get; private set; }
-    public string HashPassword { get; private set; }
+    private string _email;
+    private string _hashPassword;
+
+    public string Email
+    {
+        get => _email;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Email cannot be empty.", nameof(value));
+
+            if (!EmailIsValidStatic(value))
+                throw new ArgumentException("Invalid email format.", nameof(value));
+
+            _email = value;
+        }
+    }
+
+    public string HashPassword
+    {
+        get => _hashPassword;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Password hash cannot be empty.", nameof(value));
+
+            _hashPassword = value;   
+        }
+    }
 
     [JsonIgnore]
-    public List<Order> Orders { get; } = new();
+    private readonly List<Order> _orders = new();
 
     [JsonIgnore]
-    public int BonusPoints => Orders.Sum(o => o.Points);
+    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
 
+    [JsonIgnore]
+    public int BonusPoints => _orders.Sum(o => o.Points);
 
     public Customer(
         string firstName,
         string lastName,
         DateOnly dateOfBirth,
         string email,
-        string hashPassword)
+        string rawPassword)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email cannot be empty.", nameof(email));
-
-        if (!EmailIsValidStatic(email))
-            throw new ArgumentException("Invalid email format.", nameof(email));
-
-        if (string.IsNullOrWhiteSpace(hashPassword))
-            throw new ArgumentException("Password hash cannot be empty.", nameof(hashPassword));
-
         Email = email;
-        HashPassword = hashPassword;
 
-        All.Add(this);
+        
+        if (string.IsNullOrWhiteSpace(rawPassword))
+            throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
+
+        if (rawPassword.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters long.", nameof(rawPassword));
+
+        var hash = HashedRawPassword(rawPassword); 
+        HashPassword = hash;                     
+
+        _all.Add(this);
     }
 
+
+    
     public void AddOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        Orders.Add(order);
+        _orders.Add(order);
     }
 
     public void RemoveOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        Orders.Remove(order);
+        _orders.Remove(order);
     }
 
     public int CheckBonusPoints() => BonusPoints;
 
-
-    public static string HashRawPassword(string password)
+    
+    private string HashedRawPassword(string password)
     {
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password cannot be empty.", nameof(password));
@@ -86,14 +117,16 @@ public class Customer : Person
             return false;
         }
     }
+
     
     public static void SaveToFile(string filePath)
     {
-        var json = JsonSerializer.Serialize(All, new JsonSerializerOptions
+        var options = new JsonSerializerOptions
         {
-            WriteIndented = true,
-        });
+            WriteIndented = true
+        };
 
+        var json = JsonSerializer.Serialize(_all, options);
         File.WriteAllText(filePath, json);
     }
 
@@ -105,11 +138,10 @@ public class Customer : Person
         var json = File.ReadAllText(filePath);
         var customers = JsonSerializer.Deserialize<List<Customer>>(json);
 
+        _all.Clear();
         if (customers != null)
         {
-            All.Clear();
-            All.AddRange(customers);
+            _all.AddRange(customers);
         }
     }
 }
-

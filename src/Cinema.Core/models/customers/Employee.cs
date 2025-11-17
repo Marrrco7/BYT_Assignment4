@@ -7,17 +7,55 @@ namespace Cinema.Core.models.customers;
 
 public sealed class Employee : Person
 {
-    public static List<Employee> All { get; } = new();
-    public DateOnly HiringDate { get; private set; }
-    public string PhoneNumber { get; private set; }
-    public EmploymentContract Contract { get; private set; }
-    public List<EmployeeRole> Roles { get; } = new();
+    private static readonly List<Employee> _all = new();
+    public static IReadOnlyList<Employee> All => _all.AsReadOnly();
+
+    private DateOnly _hiringDate;
+    private string _phoneNumber;
+    private EmploymentContract _contract;
+
+    public DateOnly HiringDate
+    {
+        get => _hiringDate;
+        private set
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            if (value > today)
+                throw new ArgumentException("Hiring date cannot be in the future.", nameof(value));
+
+            _hiringDate = value;
+        }
+    }
+
+    public string PhoneNumber
+    {
+        get => _phoneNumber;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Phone number cannot be empty.", nameof(value));
+
+
+            _phoneNumber = value;
+        }
+    }
+
+    public EmploymentContract Contract
+    {
+        get => _contract;
+        private set => _contract = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    private readonly List<EmployeeRole> _roles = new();
+    public IReadOnlyList<EmployeeRole> Roles => _roles.AsReadOnly();
 
     [JsonIgnore]
     public Employee? Supervisor { get; private set; }
 
     [JsonIgnore]
-    public List<Employee> Subordinates { get; private set; } = new();
+    private readonly List<Employee> _subordinates = new();
+    [JsonIgnore]
+    public IReadOnlyList<Employee> Subordinates => _subordinates.AsReadOnly();
 
     public Employee(
         string firstName,
@@ -28,24 +66,16 @@ public sealed class Employee : Person
         EmploymentContract contract)
         : base(firstName, lastName, dateOfBirth)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        if (hiringDate > today)
-            throw new ArgumentException("Hiring date cannot be in the future.", nameof(hiringDate));
+        HiringDate  = hiringDate;   
+        PhoneNumber = phoneNumber;  
+        Contract    = contract;     
 
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-            throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
-
-        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
-
-        HiringDate = hiringDate;
-        PhoneNumber = phoneNumber;
-
-        All.Add(this);
+        _all.Add(this);
     }
 
     public void ChangeContract(EmploymentContract newContract)
     {
-        Contract = newContract ?? throw new ArgumentNullException(nameof(newContract));
+        Contract = newContract; 
     }
 
     public void AddRole(EmployeeRole role)
@@ -53,10 +83,8 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        if (!Roles.Contains(role))
-        {
-            Roles.Add(role);
-        }
+        if (!_roles.Contains(role))
+            _roles.Add(role);
     }
 
     public void RemoveRole(EmployeeRole role)
@@ -64,7 +92,7 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        Roles.Remove(role);
+        _roles.Remove(role);
     }
 
     public void AddSubordinate(Employee employee)
@@ -75,9 +103,9 @@ public sealed class Employee : Person
         if (ReferenceEquals(employee, this))
             throw new InvalidOperationException("Employee cannot supervise themselves.");
 
-        if (!Subordinates.Contains(employee))
+        if (!_subordinates.Contains(employee))
         {
-            Subordinates.Add(employee);
+            _subordinates.Add(employee);
             employee.Supervisor = this;
         }
     }
@@ -87,7 +115,7 @@ public sealed class Employee : Person
         if (employee == null)
             throw new ArgumentNullException(nameof(employee));
 
-        if (Subordinates.Remove(employee) && employee.Supervisor == this)
+        if (_subordinates.Remove(employee) && employee.Supervisor == this)
         {
             employee.Supervisor = null;
         }
@@ -102,8 +130,8 @@ public sealed class Employee : Person
             throw new InvalidOperationException("Employee cannot be their own supervisor.");
 
         Supervisor = supervisor;
-        if (!supervisor.Subordinates.Contains(this))
-            supervisor.Subordinates.Add(this);
+        if (!supervisor._subordinates.Contains(this))
+            supervisor._subordinates.Add(this);
     }
 
     public void RemoveSupervisor()
@@ -111,10 +139,11 @@ public sealed class Employee : Person
         if (Supervisor == null)
             throw new InvalidOperationException("This employee does not have a supervisor.");
 
-        Supervisor.Subordinates.Remove(this);
+        Supervisor._subordinates.Remove(this);
         Supervisor = null;
     }
 
+    
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -123,7 +152,7 @@ public sealed class Employee : Person
             PropertyNameCaseInsensitive = true
         };
 
-        var json = JsonSerializer.Serialize(All, options);
+        var json = JsonSerializer.Serialize(_all, options);
         File.WriteAllText(filePath, json);
     }
 
@@ -143,8 +172,8 @@ public sealed class Employee : Person
 
         if (employees != null)
         {
-            All.Clear();
-            All.AddRange(employees);
+            _all.Clear();
+            _all.AddRange(employees);
         }
     }
 }
