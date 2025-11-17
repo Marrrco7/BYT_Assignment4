@@ -3,9 +3,9 @@ namespace Cinema.Core.models.customers;
 public abstract class Person
 {
     
-    public string FirstName { get; set; } 
-    public string LastName { get; set; }
-    public  DateOnly DateOfBirth { get; set; }
+    public string FirstName { get; private set; } 
+    public string LastName { get; private set; }
+    public DateOnly DateOfBirth { get; private set; }
     
     public  int Age 
     {
@@ -30,7 +30,7 @@ public abstract class Person
         
         if (string.IsNullOrWhiteSpace(lastName))
             throw new ArgumentException("Last name cannot be null, empty or whitespace.");
-        IsValidDateOfBirth(dateOfBirth);
+        ValidDateOfBirth(dateOfBirth);
         
         
         FirstName = firstName;
@@ -39,9 +39,9 @@ public abstract class Person
     }
 
 
-    private void IsValidDateOfBirth(DateOnly dateOfBirth)
+    private void ValidDateOfBirth(DateOnly dateOfBirth)
     {
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = DateOnly.FromDateTime(DateTime.Today);
 
         if (dateOfBirth > today)
             throw new ArgumentException("Date of birth cannot be in the future.");

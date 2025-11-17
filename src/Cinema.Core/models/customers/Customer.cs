@@ -20,8 +20,7 @@ public class Customer : Person
     [JsonIgnore]
     public int BonusPoints => Orders.Sum(o => o.Points);
 
-
-    public Customer(
+    public  Customer(
         string firstName,
         string lastName,
         DateOnly dateOfBirth,
