@@ -16,8 +16,8 @@ public class Review
 
     public int RatingOfMovie
     {
-        get { return _ratingOfMovie; }
-        set
+        get => _ratingOfMovie;
+        private set
         {
             if (value < 1 || value > 5)
             {
@@ -29,7 +29,7 @@ public class Review
     
     public int RatingOfHall
     {
-        get { return _ratingOfHall; }
+        get => _ratingOfHall;
         set
         {
             if (value < 1 || value > 5)
@@ -43,7 +43,8 @@ public class Review
     public Customer Author { get; set; }
     public Movie ReviewedMovie { get; set; }
     
-    public static List<Review> All { get; set; } = new();
+    private static readonly List<Review> _all = new();
+    public static IReadOnlyList<Review> All => _all.AsReadOnly();
     
     public Review(int ratingOfMovie, int ratingOfHall, DateTime date, string? comment, Customer author, Movie reviewedMovie)
     {
@@ -55,25 +56,32 @@ public class Review
         Author = author;
         ReviewedMovie = reviewedMovie;
         
-        All.Add(this);
+        _all.Add(this);
     }
     
-    public Review(){}
-    
-    //we have to test it
-    public static void SaveExtent()
+    public static void SaveToFile(string filePath)
     {
-        string jsonString = JsonSerializer.Serialize(All, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText("reviews.json", jsonString);
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
     }
 
-    //we have to test it
-    public static void LoadExtent()
+    public static void LoadFromFile(string filePath)
     {
-        if (File.Exists("reviews.json"))
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var reviews = JsonSerializer.Deserialize<List<Review>>(json);
+
+        _all.Clear();
+        if (reviews != null)
         {
-            string jsonString = File.ReadAllText("reviews.json");
-            All = JsonSerializer.Deserialize<List<Review>>(jsonString) ?? new List<Review>();
+            _all.AddRange(reviews);
         }
     }
 }
