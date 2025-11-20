@@ -6,8 +6,8 @@ namespace Cinema.Core.models.sessions;
 
 public class Hall
 {
-    public static readonly int Capacity = 150;
-    public string Name { get; private set; }
+    private static readonly int Capacity = 150;
+    private string Name { get; set; }
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
     
@@ -16,7 +16,7 @@ public class Hall
     private readonly List<Movie> _movies = new();
     
     private static readonly List<Hall> _all = new();
-    public static IReadOnlyList<Hall> All => _all.AsReadOnly();
+    private static IReadOnlyList<Hall> All => _all.AsReadOnly();
 
     public Hall(string name)
     {

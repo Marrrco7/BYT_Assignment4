@@ -7,7 +7,7 @@ namespace Cinema.Core.models.sessions
     }
     
     public class Seat
-    {
+    { 
         public static List<Seat> All { get; } = new();
         public SeatType Type { get; private set; }
         public decimal NormalPrice { get; private set; }

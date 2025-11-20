@@ -2,8 +2,8 @@ namespace Cinema.Core.models.sessions
 {
     public class Movie
     {
-        public static List<Movie> All { get; } = new();
-        public string Title { get; private set; }
+        private static List<Movie> All { get; } = new();
+        private string Title { get; set; }
         public TimeSpan Duration { get; private set; }   
         public List<string> Genres { get; }              
         public int? AgeRestriction { get; private set; }  
