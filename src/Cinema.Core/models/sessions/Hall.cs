@@ -1,10 +1,11 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cinema.Core.models.operations;
 
 namespace Cinema.Core.models.sessions;
 
 public class Hall
 {
-    
     private static int _MAX_CAPACITY = 150;
     public static List<Hall> All { get; } = new();
     public string Name { get; private set; }
@@ -76,6 +77,34 @@ public class Hall
         if (movie == null) throw new ArgumentNullException(nameof(movie));
         _movies.Remove(movie);
     }
+    
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            ReferenceHandler = ReferenceHandler.Preserve 
+        };
 
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
 
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var halls = JsonSerializer.Deserialize<List<Hall>>(json, new JsonSerializerOptions
+        {
+            ReferenceHandler = ReferenceHandler.Preserve
+        });
+
+        All.Clear();
+        if (halls != null)
+            All.AddRange(halls);
+    }
+
+    
 }

@@ -61,5 +61,6 @@ namespace Cinema.Core.models.sessions
             if (hall == null) throw new ArgumentNullException(nameof(hall));
             hall.AddMovie(this);
         }
+        
     }
 }
