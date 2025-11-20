@@ -55,10 +55,7 @@ public class Customer : Person
         string rawPassword)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (string.IsNullOrWhiteSpace(email) || !EmailIsValidStatic(email))
-            throw new ArgumentException("Invalid email format.", nameof(email));
-
-        _email = email;
+        Email = email;
 
         if (string.IsNullOrWhiteSpace(rawPassword))
             throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
