@@ -47,9 +47,6 @@ public class Customer : Person
     [JsonIgnore]
     public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
 
-    [JsonIgnore]
-    public int BonusPoints => _orders.Sum(o => o.Points);
-
     public Customer(
         string firstName,
         string lastName,
@@ -142,5 +139,10 @@ public class Customer : Person
         {
             _all.AddRange(customers);
         }
+    }
+
+    public int GetBonusPoints()
+    {
+        return _orders.Sum(o => o.CalculatePoints());
     }
 }
