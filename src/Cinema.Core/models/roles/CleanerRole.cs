@@ -42,8 +42,7 @@ public sealed class CleanerRole : EmployeeRole
             totalMinutes += shift.CalculateDuration().TotalMinutes;
 
         var avgMinutes = totalMinutes / shifts.Count;
-        AvgCleaningTime = TimeSpan.FromMinutes(avgMinutes);
 
-        return AvgCleaningTime;
+        return TimeSpan.FromMinutes(avgMinutes);
     }
 }
