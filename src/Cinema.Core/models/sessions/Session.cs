@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Cinema.Core.models.sessions
 {
     public enum SessionStatus
@@ -77,5 +80,34 @@ namespace Cinema.Core.models.sessions
         // public void SaveEdit()
         // {
         // }
+        
+        public static void SaveToFile(string filePath)
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                ReferenceHandler = ReferenceHandler.Preserve
+            };
+
+            var json = JsonSerializer.Serialize(All, options);
+            File.WriteAllText(filePath, json);
+        }
+
+        public static void LoadFromFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return;
+
+            var json = File.ReadAllText(filePath);
+            var sessions = JsonSerializer.Deserialize<List<Session>>(json, new JsonSerializerOptions
+            {
+                ReferenceHandler = ReferenceHandler.Preserve
+            });
+
+            All.Clear();
+            if (sessions != null)
+                All.AddRange(sessions);
+        }
+
     }
 }
