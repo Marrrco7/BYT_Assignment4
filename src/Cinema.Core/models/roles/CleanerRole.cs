@@ -20,7 +20,6 @@ public sealed class CleanerRole : EmployeeRole
     {
         HasSafetyTraining = hasSafetyTraining;
         LastSafetyTrainingDate = lastSafetyTrainingDate;
-        AvgCleaningTime = TimeSpan.Zero;
     }
 
     public bool IsTrainingUpToDate()
