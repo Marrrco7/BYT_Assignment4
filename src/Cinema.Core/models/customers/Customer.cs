@@ -1,99 +1,110 @@
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Cinema.Core.models;
 using Cinema.Core.models.customers;
-using Cinema.Core.models.sales;
-
-namespace Cinema.Core.models;
 
 public class Customer : Person
 {
-    public static List<Customer> All { get; } = new();
-    public string Email { get; private set; }
-    public string HashPassword { get; private set; }
+    private static readonly List<Customer> _all = new();
+    public static IReadOnlyList<Customer> All => _all.AsReadOnly();
 
-    public int BonusPoints
+    private string _email;
+    private string _hashPassword;
+
+    public string Email
     {
-        get
+        get => _email;
+        private set
         {
-            return Orders.Sum(o => o.Points);
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Email cannot be empty.", nameof(value));
+
+            if (!EmailIsValidStatic(value))
+                throw new ArgumentException("Invalid email format.", nameof(value));
+
+            _email = value;
         }
     }
-    public List<Order> Orders { get; private set; } = new();
-    
-    
-    // public List<Review> Reviews { get; private set; } = new();
 
-    public Customer(string firstName, string lastName, DateOnly dateOfBirth,
-        string email, string rawPassword)
+    public string HashPassword
+    {
+        get => _hashPassword;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Password hash cannot be empty.", nameof(value));
+
+            _hashPassword = value;   
+        }
+    }
+
+    [JsonIgnore]
+    private readonly List<Order> _orders = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
+
+    [JsonIgnore]
+    public int BonusPoints => _orders.Sum(o => o.Points);
+
+    public Customer(
+        string firstName,
+        string lastName,
+        DateOnly dateOfBirth,
+        string email,
+        string rawPassword)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email cannot be empty.");
+        Email = email;
 
-        if (!EmailIsValid(email))
-            throw new ArgumentException("Invalid email format.");
-
+        
         if (string.IsNullOrWhiteSpace(rawPassword))
-            throw new ArgumentException("Password cannot be empty.");
+            throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
 
         if (rawPassword.Length < 6)
-            throw new ArgumentException("Password must be at least 6 characters long.");
+            throw new ArgumentException("Password must be at least 6 characters long.", nameof(rawPassword));
 
-        Email = email;
-        HashPassword = HashPasswordEncoder(rawPassword);
+        var hash = HashedRawPassword(rawPassword); 
+        HashPassword = hash;                     
 
-        All.Add(this);
+        _all.Add(this);
     }
 
 
-    public int CheckBonusPoints()
-    {
-        return BonusPoints;
-    }
-
-
+    
     public void AddOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        Orders.Add(order);
+        _orders.Add(order);
     }
 
     public void RemoveOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        Orders.Remove(order);
+        _orders.Remove(order);
     }
 
 
-    // public void AddReview(Review review)
-    // {
-    //     if (review == null)
-    //         throw new ArgumentNullException(nameof(review));
-    //
-    //     Reviews.Add(review);
-    // }
-
-    // public void RemoveReview(Review review)
-    // {
-    //     if (review == null)
-    //         throw new ArgumentNullException(nameof(review)); 
-    //
-    //     Reviews.Remove(review);
-    // }
     
-    private string HashPasswordEncoder(string password)
+    private string HashedRawPassword(string password)
     {
-        using (SHA256 sha256 = SHA256.Create())
-        {
-            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(bytes);
-        }
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password cannot be empty.", nameof(password));
+
+        if (password.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters long.", nameof(password));
+
+        using var sha256 = SHA256.Create();
+        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
     }
 
-    private bool EmailIsValid(string email)
+    private static bool EmailIsValidStatic(string email)
     {
         try
         {
@@ -103,6 +114,33 @@ public class Customer : Person
         catch
         {
             return false;
+        }
+    }
+
+    
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+
+        var json = JsonSerializer.Serialize(_all, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var customers = JsonSerializer.Deserialize<List<Customer>>(json);
+
+        _all.Clear();
+        if (customers != null)
+        {
+            _all.AddRange(customers);
         }
     }
 }

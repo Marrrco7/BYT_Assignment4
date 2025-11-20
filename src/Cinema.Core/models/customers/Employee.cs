@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cinema.Core.models.contract;
 using Cinema.Core.models.roles;
 
@@ -5,17 +7,55 @@ namespace Cinema.Core.models.customers;
 
 public sealed class Employee : Person
 {
-    public DateOnly HiringDate { get; private set; }
-    public string PhoneNumber { get; private set; }
-    
-    //one contract 
-    public EmploymentContract Contract { get; private set; }
-    
-    //many roles 
-    public List<EmployeeRole> Roles { get; } = new();
+    private static readonly List<Employee> _all = new();
+    public static IReadOnlyList<Employee> All => _all.AsReadOnly();
 
-    public Employee? Supervisor { get; private set; }          
-    public List<Employee> Subordinates { get; private set; } = new(); 
+    private DateOnly _hiringDate;
+    private string _phoneNumber;
+    private EmploymentContract _contract;
+
+    public DateOnly HiringDate
+    {
+        get => _hiringDate;
+        private set
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            if (value > today)
+                throw new ArgumentException("Hiring date cannot be in the future.", nameof(value));
+
+            _hiringDate = value;
+        }
+    }
+
+    public string PhoneNumber
+    {
+        get => _phoneNumber;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Phone number cannot be empty.", nameof(value));
+
+
+            _phoneNumber = value;
+        }
+    }
+
+    public EmploymentContract Contract
+    {
+        get => _contract;
+        private set => _contract = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    private readonly List<EmployeeRole> _roles = new();
+    public IReadOnlyList<EmployeeRole> Roles => _roles.AsReadOnly();
+
+    [JsonIgnore]
+    public Employee? Supervisor { get; private set; }
+
+    [JsonIgnore]
+    private readonly List<Employee> _subordinates = new();
+    [JsonIgnore]
+    public IReadOnlyList<Employee> Subordinates => _subordinates.AsReadOnly();
 
     public Employee(
         string firstName,
@@ -26,20 +66,16 @@ public sealed class Employee : Person
         EmploymentContract contract)
         : base(firstName, lastName, dateOfBirth)
     {
-        if (hiringDate > DateOnly.FromDateTime(DateTime.Now))
-            throw new ArgumentException("Hiring date cannot be in the future.", nameof(hiringDate));
+        HiringDate  = hiringDate;   
+        PhoneNumber = phoneNumber;  
+        Contract    = contract;     
 
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-            throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
-
-        HiringDate = hiringDate;
-        PhoneNumber = phoneNumber;
-        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
+        _all.Add(this);
     }
 
     public void ChangeContract(EmploymentContract newContract)
     {
-        Contract = newContract ?? throw new ArgumentNullException(nameof(newContract));
+        Contract = newContract; 
     }
 
     public void AddRole(EmployeeRole role)
@@ -47,7 +83,8 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        Roles.Add(role);
+        if (!_roles.Contains(role))
+            _roles.Add(role);
     }
 
     public void RemoveRole(EmployeeRole role)
@@ -55,7 +92,7 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        Roles.Remove(role);
+        _roles.Remove(role);
     }
 
     public void AddSubordinate(Employee employee)
@@ -66,19 +103,19 @@ public sealed class Employee : Person
         if (ReferenceEquals(employee, this))
             throw new InvalidOperationException("Employee cannot supervise themselves.");
 
-        if (!Subordinates.Contains(employee))
+        if (!_subordinates.Contains(employee))
         {
-            Subordinates.Add(employee);
+            _subordinates.Add(employee);
             employee.Supervisor = this;
         }
     }
-    
+
     public void RemoveSubordinate(Employee employee)
     {
         if (employee == null)
             throw new ArgumentNullException(nameof(employee));
 
-        if (Subordinates.Remove(employee) && employee.Supervisor == this)
+        if (_subordinates.Remove(employee) && employee.Supervisor == this)
         {
             employee.Supervisor = null;
         }
@@ -93,18 +130,50 @@ public sealed class Employee : Person
             throw new InvalidOperationException("Employee cannot be their own supervisor.");
 
         Supervisor = supervisor;
-        if (!supervisor.Subordinates.Contains(this))
-            supervisor.Subordinates.Add(this);
+        if (!supervisor._subordinates.Contains(this))
+            supervisor._subordinates.Add(this);
     }
-    
+
     public void RemoveSupervisor()
     {
         if (Supervisor == null)
             throw new InvalidOperationException("This employee does not have a supervisor.");
 
-        Supervisor.Subordinates.Remove(this);
+        Supervisor._subordinates.Remove(this);
         Supervisor = null;
     }
-    
 
+    
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var json = JsonSerializer.Serialize(_all, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var employees = JsonSerializer.Deserialize<List<Employee>>(json, options);
+
+        if (employees != null)
+        {
+            _all.Clear();
+            _all.AddRange(employees);
+        }
+    }
 }

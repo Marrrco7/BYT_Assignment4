@@ -1,19 +1,24 @@
-﻿using Cinema.Core.models.sessions;
-using Cinema.Core.models;
+﻿using Cinema.Core.models;
+using Cinema.Core.models.sessions;
 
 namespace Cinema.Tests.Models
 {
     [TestFixture]
     public class CustomerTests
     {
+        private const string FilePath = "customers.json";
+
         [SetUp]
-        public void Setup()
+        public void SetUp()
         {
             Customer.All.Clear();
+
+            if (File.Exists(FilePath))
+                File.Delete(FilePath);
         }
 
         [Test]
-        public void Constructor_WithValidData_ShouldCreateCustomer()
+        public void Create_WithValidData_ShouldCreateCustomer()
         {
             // Arrange
             var firstName = "Jane";
@@ -23,80 +28,88 @@ namespace Cinema.Tests.Models
             var password = "SecurePass123";
 
             // Act
-            var customer = new Customer(firstName, lastName, dateOfBirth, email, password);
+            var customer = Customer.Create(firstName, lastName, dateOfBirth, email, password);
 
             // Assert
             Assert.That(customer.Email, Is.EqualTo(email));
             Assert.That(customer.HashPassword, Is.Not.Null.And.Not.Empty);
-            Assert.That(customer.HashPassword, Is.Not.EqualTo(password)); // Should be hashed
+            Assert.That(customer.HashPassword, Is.Not.EqualTo(password)); // should be hashed
             Assert.That(customer.FirstName, Is.EqualTo(firstName));
         }
 
         [Test]
         [TestCase("")]
         [TestCase(" ")]
-        public void Constructor_WithInvalidEmail_ShouldThrowException(string invalidEmail)
+        public void Create_WithInvalidEmail_ShouldThrowException(string invalidEmail)
         {
             // Arrange
             var dateOfBirth = new DateOnly(1995, 5, 15);
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", dateOfBirth, invalidEmail, "Password123"));
-            Assert.That(ex.Message, Does.Contain("Email cannot be empty").Or.Contain("Invalid email format"));
+                Customer.Create("Jane", "Smith", dateOfBirth, invalidEmail, "Password123"));
+
+            Assert.That(ex!.Message,
+                Does.Contain("Email cannot be empty")
+                .Or.Contain("Invalid email format"));
         }
 
         [Test]
-        public void Constructor_WithNullEmail_ShouldThrowException()
+        public void Create_WithNullEmail_ShouldThrowException()
         {
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), null!, "Password123"));
-            Assert.That(ex.Message, Does.Contain("Email cannot be empty"));
+                Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), null!, "Password123"));
+
+            Assert.That(ex!.Message, Does.Contain("Email cannot be empty"));
         }
 
         [Test]
-        public void Constructor_WithInvalidEmailFormat_ShouldThrowException()
+        public void Create_WithInvalidEmailFormat_ShouldThrowException()
         {
             // Arrange
             var invalidEmail = "invalid-email";
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), invalidEmail, "Password123"));
-            Assert.That(ex.Message, Does.Contain("Invalid email format"));
+                Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), invalidEmail, "Password123"));
+
+            Assert.That(ex!.Message, Does.Contain("Invalid email format"));
         }
 
         [Test]
         [TestCase("")]
         [TestCase(" ")]
-        public void Constructor_WithEmptyPassword_ShouldThrowException(string invalidPassword)
+        public void Create_WithEmptyPassword_ShouldThrowException(string invalidPassword)
         {
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", invalidPassword));
-            Assert.That(ex.Message, Does.Contain("Password cannot be empty"));
+                Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", invalidPassword));
+
+            Assert.That(ex!.Message, Does.Contain("Password cannot be empty"));
         }
 
         [Test]
-        public void Constructor_WithNullPassword_ShouldThrowException()
+        public void Create_WithNullPassword_ShouldThrowException()
         {
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", null!));
-            Assert.That(ex.Message, Does.Contain("Password cannot be empty"));
+                Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", null!));
+
+            Assert.That(ex!.Message, Does.Contain("Password cannot be empty"));
         }
 
         [Test]
-        public void Constructor_WithShortPassword_ShouldThrowException()
+        public void Create_WithShortPassword_ShouldThrowException()
         {
             // Arrange
             var shortPassword = "Pass";
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", shortPassword));
-            Assert.That(ex.Message, Does.Contain("Password must be at least 6 characters long"));
+                Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), "test@example.com", shortPassword));
+
+            Assert.That(ex!.Message, Does.Contain("Password must be at least 6 characters long"));
         }
 
         [Test]
@@ -106,8 +119,8 @@ namespace Cinema.Tests.Models
             var initialCount = Customer.All.Count;
 
             // Act
-            var customer1 = new Customer("John", "Doe", new DateOnly(1990, 1, 1), "john@example.com", "Password123");
-            var customer2 = new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), "jane@example.com", "Password123");
+            var customer1 = Customer.Create("John", "Doe", new DateOnly(1990, 1, 1), "john@example.com", "Password123");
+            var customer2 = Customer.Create("Jane", "Smith", new DateOnly(1995, 5, 15), "jane@example.com", "Password123");
 
             // Assert
             Assert.That(Customer.All.Count, Is.EqualTo(initialCount + 2));
@@ -137,7 +150,7 @@ namespace Cinema.Tests.Models
 
             // Act & Assert
             var ex = Assert.Throws<ArgumentNullException>(() => customer.AddOrder(null!));
-            Assert.That(ex.ParamName, Is.EqualTo("order"));
+            Assert.That(ex!.ParamName, Is.EqualTo("order"));
         }
 
         [Test]
@@ -159,7 +172,7 @@ namespace Cinema.Tests.Models
 
         private Customer CreateTestCustomer(string email = "test@example.com", string password = "Password123")
         {
-            return new Customer("Test", "User", new DateOnly(1995, 1, 1), email, password);
+            return Customer.Create("Test", "User", new DateOnly(1995, 1, 1), email, password);
         }
 
         private Order CreateTestOrder()
