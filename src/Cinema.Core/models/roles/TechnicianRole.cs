@@ -2,18 +2,28 @@ namespace Cinema.Core.models.roles;
 
 public sealed class TechnicianRole : EmployeeRole
 {
-    public string Degree { get; }
+    private string _degree = null!;
+
+    public string Degree
+    {
+        get => _degree;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Degree cannot be null, empty, or whitespace.", nameof(value));
+            if (value.Length < 2)
+                throw new ArgumentException("Degree name must be at least 2 characters long.", nameof(value));
+            if (!value.All(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c == '-'))
+                throw new ArgumentException("Degree can only contain letters, spaces, or hyphens.", nameof(value));
+
+            _degree = value;
+        }
+    }
+
     public bool IsOnCall { get; }
 
     public TechnicianRole(string degree, bool isOnCall)
     {
-        if (string.IsNullOrWhiteSpace(degree))
-            throw new ArgumentException("Degree cannot be null, empty, or whitespace.", nameof(degree));
-        if (degree.Length < 2)
-            throw new ArgumentException("Degree name must be at least 2 characters long.", nameof(degree));
-        if (!degree.All(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c == '-'))
-            throw new ArgumentException("Degree can only contain letters, spaces, or hyphens.", nameof(degree));
-
         Degree = degree;
         IsOnCall = isOnCall;
     }
