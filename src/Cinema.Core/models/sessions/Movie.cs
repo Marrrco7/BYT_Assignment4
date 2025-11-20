@@ -3,10 +3,6 @@ namespace Cinema.Core.models.sessions
     public class Movie
     {
         public static List<Movie> All { get; } = new();
-
-        private static int _counter = 0;
-
-        public int Id { get; }
         public string Title { get; private set; }
         public TimeSpan Duration { get; private set; }   
         public List<string> Genres { get; }              
@@ -37,7 +33,6 @@ namespace Cinema.Core.models.sessions
             if (ageRestriction is < 0)
                 throw new ArgumentException("Age restriction must be non-negative.", nameof(ageRestriction));
 
-            Id = ++_counter;
             Title = title;
             Duration = duration;
             Genres = genreList;

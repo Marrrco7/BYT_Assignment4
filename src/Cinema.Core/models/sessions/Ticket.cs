@@ -3,18 +3,10 @@ namespace Cinema.Core.models.sessions
     public class Ticket
     {
         public static List<Ticket> All { get; } = new();
-
-        private static int _counter = 0;
-
-        public int Id { get; }
-
         public Session Session { get; }
         public Seat Seat { get; }
-
         public decimal FinalPrice => CalculateFinalPrice();
-
         public bool IsBooked { get; private set; }
-
         public decimal DiscountAmount { get; private set; }   
         public int BonusPointsUsed { get; private set; }     
 
@@ -32,7 +24,6 @@ namespace Cinema.Core.models.sessions
             if (bonusPointsUsed < 0)
                 throw new ArgumentException("Bonus points cannot be negative.", nameof(bonusPointsUsed));
 
-            Id = ++_counter;
             DiscountAmount = discountAmount;
             BonusPointsUsed = bonusPointsUsed;
 

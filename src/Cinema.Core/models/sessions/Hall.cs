@@ -6,14 +6,8 @@ public class Hall
 {
     
     private static int _MAX_CAPACITY = 150;
-    private static int _counter = 0;
-    
     public static List<Hall> All { get; } = new();
-    
-    private int Id { get;}
-    
     public string Name { get; private set; }
-    
     public int Capacity { get; private set; }
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
@@ -32,7 +26,6 @@ public class Hall
         if (capacity <= 0 || capacity > _MAX_CAPACITY)
             throw new ArgumentException("Capacity must be positive or lower than ", nameof(_MAX_CAPACITY));
 
-        Id = ++_counter;
         Name = name;
         Capacity  = capacity;
         

@@ -10,14 +10,8 @@ namespace Cinema.Core.models.sessions
     public class Session
     {
         public static List<Session> All { get; } = new();
-
-        private static int _counter = 0;
-
-        public int Id { get; }
-
         public DateTime StartAt { get; set; }
         public DateTime EndAt => StartAt + Movie.Duration;
-
         public string Language { get; set; }
         public SessionStatus Status { get; set; }
         public Hall Hall { get; }
@@ -35,8 +29,7 @@ namespace Cinema.Core.models.sessions
 
             if (string.IsNullOrWhiteSpace(language))
                 throw new ArgumentException("Language cannot be empty.", nameof(language));
-
-            Id = ++_counter;
+            
             StartAt = startAt;
             Language = language;
             Status = status;
