@@ -1,8 +1,10 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cinema.Core.models.customers;
 using Cinema.Core.models.roles;
 using Cinema.Core.models.sessions;
 
-namespace Cinema.Core.models;
+namespace Cinema.Core.models.sales;
 
 public enum OrderStatus
 {
@@ -19,24 +21,84 @@ public enum TypeOfOrder
 
 public class Order
 {
-    public static List<Order> All { get; } = new();
+    private static readonly List<Order> _all = new();
+    public static IReadOnlyList<Order> All => _all.AsReadOnly();
 
     private static int _counter = 0;
 
     public int Id { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public TypeOfOrder TypeOfOrder { get; private set; }
+
+    private DateTime _createdAt;
+    public DateTime CreatedAt
+    {
+        get => _createdAt;
+        private set
+        {
+            if (value > DateTime.Now)
+                throw new ArgumentException("CreatedAt cannot be in the future.");
+            _createdAt = value;
+        }
+    }
+    private TypeOfOrder _typeOfOrder;
+    public TypeOfOrder TypeOfOrder
+    {
+        get => _typeOfOrder;
+        private set
+        {
+            _typeOfOrder = value;
+            ValidateXorRules();
+        }
+    }
     public OrderStatus Status { get; private set; }
-    private string? EmailForBonusPoints { get; set; }
-
-    public  int Points => CalculatePoints();
-
-    private List<Ticket> Tickets { get; set; }
+    public string? EmailForBonusPoints { get; private set; }
     
-    
+    public int Points => CalculatePoints();
+
+    private List<Ticket> _tickets = new();
+    private List<Ticket> Tickets
+    {
+        get => _tickets;
+        set
+        {
+            if (value == null || value.Count == 0)
+                throw new ArgumentException("Order must contain at least one ticket.");
+            _tickets = value;
+        }
+    }
+
+
     // XOR
-    private Customer? Customer { get; set; }
-    private Employee? Cashier { get; set; }
+    private Customer? _customer;
+    private Employee? _cashier;
+
+    private Customer? Customer
+    {
+        get => _customer;
+        set
+        {
+            _customer = value;
+            ValidateXorRules();
+        }
+    }
+
+    private Employee? Cashier
+    {
+        get => _cashier;
+        set
+        {
+            if (value != null)
+            {
+                bool hasCashierRole = value.Roles.Any(r => r is CashierRole);
+                if (!hasCashierRole)
+                    throw new ArgumentException(
+                        $"Employee {value.FirstName} {value.LastName} does not have CashierRole.");
+            }
+
+            _cashier = value;
+            ValidateXorRules();
+        }
+    }
+
 
 
     public Order(
@@ -48,50 +110,43 @@ public class Order
         Employee? cashier = null,
         string? emailForBonusPoints = null)
     {
-        if (createdAt > DateTime.Now)
-            throw new ArgumentException("CreatedAt cannot be in the future.");
-        if (tickets == null || tickets.Count == 0)
-            throw new ArgumentException("Order must contain at least one ticket.");
-
-        // XOR 
-        if (orderType == TypeOfOrder.Online)
-        {
-            if (customer == null)
-                throw new ArgumentException("Online order must have an associated customer.");
-            if (cashier != null)
-                throw new ArgumentException("Online order cannot have a cashier.");
-        }
-        else if (orderType == TypeOfOrder.BoxOffice)
-        {
-            if (cashier == null)
-                throw new ArgumentException("Box office order must have an associated cashier.");
-
-            bool hasCashierRole = cashier.Roles.Any(role => role is CashierRole);
-
-            if (!hasCashierRole)
-                throw new ArgumentException(
-                    $"Employee {cashier.FirstName} {cashier.LastName} does not have CashierRole and cannot operate as cashier."
-                );
-        }
-
         Id = ++_counter;
         CreatedAt = createdAt;
-        TypeOfOrder = orderType;
-        Status = status;
         Tickets = tickets;
-        Customer = customer;
-        Cashier = cashier;
         EmailForBonusPoints = emailForBonusPoints;
+        
+        _customer = customer;
+        _cashier = cashier;
+        _typeOfOrder = orderType;
 
-        All.Add(this);
+        ValidateXorRules();
 
+        Status = status;
+
+        _all.Add(this);
     }
 
     private int CalculatePoints()
     {
-        return Tickets.Count * 10; 
+        return Tickets.Count * 10;
     }
-
+    
+    private void ValidateXorRules()
+    {
+        if (TypeOfOrder == TypeOfOrder.Online)
+        {
+            if (Customer == null)
+                throw new ArgumentException("Online order must have a customer.");
+            if (Cashier != null)
+                throw new ArgumentException("Online order cannot have a cashier.");
+        }
+        else if (TypeOfOrder == TypeOfOrder.BoxOffice)
+        {
+            if (Cashier == null)
+                throw new ArgumentException("Box office order must have a cashier.");
+        }
+    }
+    
     public void ViewOrder()
     {
         Console.WriteLine("\n--- Order Details ---");
@@ -112,7 +167,7 @@ public class Order
                 .Roles
                 .FirstOrDefault(r => r is CashierRole) as CashierRole;
 
-            string posLogin = cashierRole?.POSLogin ?? "None";
+            var posLogin = cashierRole?.POSLogin ?? "None";
 
             Console.WriteLine("Cashier POS Login: " + posLogin);
             Console.WriteLine("Linked Customer Email: " + (EmailForBonusPoints ?? "None"));
@@ -124,8 +179,8 @@ public class Order
         if (Status != OrderStatus.Pending)
             throw new InvalidOperationException(
                 $"Cannot finalize order {Id}. Current status: {Status}");
-        
-        AssingTheOrderToCustomerByEmail();
+
+        AssignTheOrderToCustomerByEmail();
 
         Status = OrderStatus.Paid;
         Console.WriteLine(
@@ -139,11 +194,10 @@ public class Order
                 $"Cannot refund order {Id}. Current status: {Status}");
 
         Status = OrderStatus.Refunded;
-        Console.WriteLine(
-            $"Order {Id} refunded for {(Customer != null ? Customer.Email : "unlinked customer")}.");
+        Console.WriteLine($"Order {Id} refunded for {(Customer != null ? Customer.Email : "unlinked customer")}.");
     }
-    
-    private void AssingTheOrderToCustomerByEmail()
+
+    private void AssignTheOrderToCustomerByEmail()
     {
         if (Customer != null || string.IsNullOrWhiteSpace(EmailForBonusPoints))
             return;
@@ -151,14 +205,12 @@ public class Order
         Customer? matched = null;
 
         foreach (var c in Customer.All)
-        {
             if (c.Email != null &&
                 c.Email.Equals(EmailForBonusPoints, StringComparison.OrdinalIgnoreCase))
             {
                 matched = c;
                 break;
             }
-        }
 
         if (matched != null)
         {
@@ -170,6 +222,38 @@ public class Order
         else
         {
             Console.WriteLine($"No customer found with email {EmailForBonusPoints}");
+        }
+    }
+    
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+        };
+
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var orders = JsonSerializer.Deserialize<List<Order>>(json, new JsonSerializerOptions
+        {
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+        });
+
+        _all.Clear();
+        if (orders != null && orders.Any())
+        {
+            _all.AddRange(orders);
+            
+            _counter = orders.Max(o => o.Id); 
         }
     }
 }
