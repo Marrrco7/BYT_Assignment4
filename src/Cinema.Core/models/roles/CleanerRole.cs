@@ -16,8 +16,6 @@ public sealed class CleanerRole : EmployeeRole
         private set => _lastSafetyTrainingDate = value;
     }
 
-    public TimeSpan AvgCleaningTime { get; private set; }
-
     public CleanerRole(bool hasSafetyTraining, DateOnly lastSafetyTrainingDate)
     {
         HasSafetyTraining = hasSafetyTraining;
@@ -42,7 +40,7 @@ public sealed class CleanerRole : EmployeeRole
         double totalMinutes = 0;
 
         foreach (var shift in shifts)
-            totalMinutes += shift.Duration.TotalMinutes;
+            totalMinutes += shift.CalculateDuration().TotalMinutes;
 
         var avgMinutes = totalMinutes / shifts.Count;
         AvgCleaningTime = TimeSpan.FromMinutes(avgMinutes);
