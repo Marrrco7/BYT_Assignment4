@@ -14,7 +14,7 @@ public class Promotion
         get => _validFrom;
         private set
         {
-            if (value > ValidTo)
+            if (_validTo != DateTime.MinValue && value > _validTo)
                 throw new ArgumentException("ValidFrom date cannot be after ValidTo date.");
             _validFrom = value;
         }
@@ -33,8 +33,10 @@ public class Promotion
         }
     }
 
-    private string Description { get; set; }
-    private decimal DiscountAmount { get; set; }
+    public string Description { get; private set; }
+    public decimal DiscountAmount { get; private set; }
+
+    public Promotion() { }
 
     public Promotion(DateTime validFrom, DateTime validTo, string description, decimal discountAmount)
     {
