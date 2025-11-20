@@ -31,8 +31,6 @@ public class Shift
             ValidateTimes();
         }
     }
-
-    public TimeSpan Duration => EndTime - StartTime;
     
     public CleanerRole Cleaner { get; private set; }
     public Hall Hall { get; private set; }
@@ -51,7 +49,7 @@ public class Shift
     
     public override string ToString()
     {
-        return $"[{StartTime:dd MMMM yyyy}] Cleaner worked in hall from {StartTime:HH:mm} to {EndTime:HH:mm} ({Duration.TotalMinutes:F0} min)";
+        return $"[{StartTime:dd MMMM yyyy}] Cleaner worked in hall from {StartTime:HH:mm} to {EndTime:HH:mm} ({CalculateDuration().TotalMinutes:F0} min)";
     }
     
     private void ValidateTimes()
@@ -87,5 +85,10 @@ public class Shift
         {
             _all.AddRange(shifts);
         }
+    }
+
+    public TimeSpan CalculateDuration()
+    {
+        return EndTime - StartTime;
     }
 }
