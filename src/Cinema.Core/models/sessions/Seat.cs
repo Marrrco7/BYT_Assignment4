@@ -5,7 +5,7 @@ namespace Cinema.Core.models.sessions
         Normal,
         Vip
     }
-
+    
     public class Seat
     {
         public static List<Seat> All { get; } = new();

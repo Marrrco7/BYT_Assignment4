@@ -3,20 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace Cinema.Core.models.sessions
 {
-    public enum SessionStatus
-    {
-        Scheduled,
-        Started,
-        Finished
-    }
-
     public class Session
     {
         public static List<Session> All { get; } = new();
         public DateTime StartAt { get; set; }
-        public DateTime EndAt => StartAt + Movie.Duration;
         public string Language { get; set; }
-        public SessionStatus Status { get; set; }
         public Hall Hall { get; }
         public Movie Movie { get; }
 
@@ -24,8 +15,7 @@ namespace Cinema.Core.models.sessions
             Hall hall,
             Movie movie,
             DateTime startAt,
-            string language,
-            SessionStatus status = SessionStatus.Scheduled)
+            string language)
         {
             Hall = hall ?? throw new ArgumentNullException(nameof(hall));
             Movie = movie ?? throw new ArgumentNullException(nameof(movie));
@@ -35,7 +25,6 @@ namespace Cinema.Core.models.sessions
             
             StartAt = startAt;
             Language = language;
-            Status = status;
 
             All.Add(this);
         }
@@ -62,14 +51,12 @@ namespace Cinema.Core.models.sessions
         public static void EditSession(
             Session session,
             DateTime newStartAt,
-            string newLanguage,
-            SessionStatus newStatus)
+            string newLanguage)
         {
             if (session == null) throw new ArgumentNullException(nameof(session));
 
             session.StartAt = newStartAt;
             session.Language = newLanguage;
-            session.Status = newStatus;
         }
         
         public void SaveSession()
@@ -77,10 +64,12 @@ namespace Cinema.Core.models.sessions
             AddSession(this);
         }
 
-        // public void SaveEdit()
-        // {
-        // }
-        
+        public DateTime CalculateEndAt()
+        {
+            return StartAt + Movie.Duration;
+
+        }
+
         public static void SaveToFile(string filePath)
         {
             var options = new JsonSerializerOptions

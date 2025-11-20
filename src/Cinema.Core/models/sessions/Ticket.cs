@@ -5,7 +5,6 @@ namespace Cinema.Core.models.sessions
         public static List<Ticket> All { get; } = new();
         public Session Session { get; }
         public Seat Seat { get; }
-        public decimal FinalPrice => CalculateFinalPrice();
         public bool IsBooked { get; private set; }
         public decimal DiscountAmount { get; private set; }   
         public int BonusPointsUsed { get; private set; }     
@@ -33,24 +32,21 @@ namespace Cinema.Core.models.sessions
         private decimal CalculateFinalPrice()
         {
             decimal price = Seat.CalculateFinalSeatPrice();
-
             price -= DiscountAmount;
             price -= BonusPointsUsed;
             
             return price < 0 ? 0 : price;
         }
-
-
+        
         public void BookTicket()
         {
             if (IsBooked)
                 throw new InvalidOperationException("Ticket is already booked.");
-
+        
             IsBooked = true;
-
+        
           //we will probably need to pass a cashier object here for box office orders
         }
         
-        public static IReadOnlyList<Ticket> ListAll() => All.AsReadOnly();
     }
 }
