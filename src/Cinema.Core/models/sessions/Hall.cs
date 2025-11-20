@@ -12,13 +12,10 @@ public class Hall
     public int Capacity { get; private set; }
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
-    public IReadOnlyCollection<Seat> Seats => _seatsByNumber.Values;
     
     private readonly List<Equipment> _equipment = new();
-    public IReadOnlyList<Equipment> Equipment => _equipment.AsReadOnly();
     
     private readonly List<Movie> _movies = new();
-    public IReadOnlyList<Movie> Movies => _movies.AsReadOnly();
     
     public Hall(string name, int capacity)
     {

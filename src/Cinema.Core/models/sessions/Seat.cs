@@ -11,8 +11,6 @@ namespace Cinema.Core.models.sessions
         public static List<Seat> All { get; } = new();
         public SeatType Type { get; private set; }
         public decimal NormalPrice { get; private set; }
-        public decimal FinalSeatPrice =>
-            Type == SeatType.Vip ? NormalPrice * TicketMultiplier : NormalPrice;
         public bool IsAccessible { get; private set; }
         public decimal TicketMultiplier { get; private set; } = 1.8m;
 
@@ -34,6 +32,13 @@ namespace Cinema.Core.models.sessions
 
             All.Add(this);
         }
-        
+
+        public decimal CalculateFinalSeatPrice()
+        {
+            if (Type == SeatType.Vip)
+                return NormalPrice * TicketMultiplier;
+
+            return NormalPrice;
+        }
     }
 }
