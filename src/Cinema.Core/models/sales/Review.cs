@@ -10,9 +10,7 @@ public class Review
     private int _ratingOfHall;
     
     public DateTime Date { get; set; }
-    
-    //is it optional?
-    public string? Comment { get; set; }
+    public string Comment { get; set; }
 
     public int RatingOfMovie
     {
@@ -46,7 +44,7 @@ public class Review
     private static readonly List<Review> _all = new();
     public static IReadOnlyList<Review> All => _all.AsReadOnly();
     
-    public Review(int ratingOfMovie, int ratingOfHall, DateTime date, string? comment, Customer author, Movie reviewedMovie)
+    public Review(int ratingOfMovie, int ratingOfHall, DateTime date, string comment, Customer author, Movie reviewedMovie)
     {
         RatingOfMovie = ratingOfMovie;
         RatingOfHall = ratingOfHall;
