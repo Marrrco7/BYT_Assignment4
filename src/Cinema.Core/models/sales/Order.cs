@@ -51,8 +51,6 @@ public class Order
     }
     public OrderStatus Status { get; private set; }
     public string? EmailForBonusPoints { get; private set; }
-    
-    public int Points => CalculatePoints();
 
     private List<Ticket> _tickets = new();
     private List<Ticket> Tickets
@@ -126,7 +124,7 @@ public class Order
         _all.Add(this);
     }
 
-    private int CalculatePoints()
+    public int CalculatePoints()
     {
         return Tickets.Count * 10;
     }
@@ -155,7 +153,7 @@ public class Order
         Console.WriteLine("Type: " + TypeOfOrder);
         Console.WriteLine("Status: " + Status);
         Console.WriteLine("Tickets: " + Tickets.Count);
-        Console.WriteLine("Points: " + Points);
+        Console.WriteLine("Points: " + CalculatePoints());
 
         if (TypeOfOrder == TypeOfOrder.Online)
         {
