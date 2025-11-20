@@ -2,12 +2,8 @@ namespace Cinema.Core.models.sessions
 {
     public class Movie
     {
-        public static List<Movie> All { get; } = new();
-
-        private static int _counter = 0;
-
-        public int Id { get; }
-        public string Title { get; private set; }
+        private static List<Movie> All { get; } = new();
+        private string Title { get; set; }
         public TimeSpan Duration { get; private set; }   
         public List<string> Genres { get; }              
         public int? AgeRestriction { get; private set; }  
@@ -37,7 +33,6 @@ namespace Cinema.Core.models.sessions
             if (ageRestriction is < 0)
                 throw new ArgumentException("Age restriction must be non-negative.", nameof(ageRestriction));
 
-            Id = ++_counter;
             Title = title;
             Duration = duration;
             Genres = genreList;
@@ -66,5 +61,6 @@ namespace Cinema.Core.models.sessions
             if (hall == null) throw new ArgumentNullException(nameof(hall));
             hall.AddMovie(this);
         }
+        
     }
 }
