@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Cinema.Core.models;
 using Cinema.Core.models.customers;
+using Cinema.Core.models.sales;
 
 public class Customer : Person
 {

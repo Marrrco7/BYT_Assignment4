@@ -32,7 +32,7 @@ public class Shift
         }
     }
 
-    private TimeSpan Duration => EndTime - StartTime;
+    public TimeSpan Duration => EndTime - StartTime;
     
     public CleanerRole Cleaner { get; private set; }
     public Hall Hall { get; private set; }
