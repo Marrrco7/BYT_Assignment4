@@ -32,14 +32,14 @@ namespace Cinema.Core.models.sessions
 
         private decimal CalculateFinalPrice()
         {
-            decimal price = Seat.FinalSeatPrice;
+            decimal price = Seat.CalculateFinalSeatPrice();
 
-            // Apply discount 
             price -= DiscountAmount;
             price -= BonusPointsUsed;
             
             return price < 0 ? 0 : price;
         }
+
 
         public void BookTicket()
         {
