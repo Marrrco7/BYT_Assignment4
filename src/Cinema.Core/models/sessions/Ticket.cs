@@ -26,7 +26,7 @@ namespace Cinema.Core.models.sessions
 
             if (activePromo != null)
             {
-                price -= activePromo.DiscountValue; 
+                price -= activePromo.GetDiscountAmount; 
             }
 
             if (bonusPointsUsed > 0)
@@ -37,8 +37,7 @@ namespace Cinema.Core.models.sessions
             return price < 0 ? 0 : price;
         }
 
-
-
+        
         public void BookTicket()
         {
             if (IsBooked)

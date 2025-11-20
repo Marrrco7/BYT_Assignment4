@@ -75,10 +75,6 @@ public class Promotion
         if (promotions != null) _all.AddRange(promotions);
     }
     
-    public decimal DiscountValue
-    {
-        get { return DiscountAmount; }
-    }
-
-
+    public decimal GetDiscountAmount => DiscountAmount;
+    
 }
