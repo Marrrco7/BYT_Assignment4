@@ -46,16 +46,15 @@ public class Order
         private set
         {
             _typeOfOrder = value;
-            ValidateXorRules();
         }
     }
     public OrderStatus Status { get; private set; }
     public string? EmailForBonusPoints { get; private set; }
 
     private List<Ticket> _tickets = new();
-    private List<Ticket> Tickets
+    public List<Ticket> Tickets
     {
-        get => _tickets;
+        get => _tickets;                    
         set
         {
             if (value == null || value.Count == 0)
@@ -79,7 +78,7 @@ public class Order
         }
     }
 
-    private Employee? Cashier
+    public Employee? Cashier
     {
         get => _cashier;
         set
@@ -97,7 +96,7 @@ public class Order
         }
     }
 
-
+    public Order() { }
 
     public Order(
         DateTime createdAt,
@@ -117,6 +116,9 @@ public class Order
         _cashier = cashier;
         _typeOfOrder = orderType;
 
+        if (customer != null) Customer = customer;
+        if (cashier != null) Cashier = cashier;
+
         ValidateXorRules();
 
         Status = status;
@@ -131,17 +133,17 @@ public class Order
     
     private void ValidateXorRules()
     {
-        if (TypeOfOrder == TypeOfOrder.Online)
+        if (_typeOfOrder == TypeOfOrder.Online)
         {
-            if (Customer == null)
-                throw new ArgumentException("Online order must have a customer.");
-            if (Cashier != null)
-                throw new ArgumentException("Online order cannot have a cashier.");
+            if (_customer == null && _cashier != null)
+                return;
+
+            if (_customer == null) throw new ArgumentException("Online order must have a customer.");
+            if (_cashier != null) throw new ArgumentException("Online order cannot have a cashier.");
         }
-        else if (TypeOfOrder == TypeOfOrder.BoxOffice)
+        else if (_typeOfOrder == TypeOfOrder.BoxOffice)
         {
-            if (Cashier == null)
-                throw new ArgumentException("Box office order must have a cashier.");
+            if (_cashier == null) throw new ArgumentException("Box office order must have a cashier.");
         }
     }
     

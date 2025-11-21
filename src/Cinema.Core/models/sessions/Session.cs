@@ -8,8 +8,10 @@ namespace Cinema.Core.models.sessions
         public static List<Session> All { get; } = new();
         public DateTime StartAt { get; set; }
         public string Language { get; set; }
-        public Hall Hall { get; }
-        public Movie Movie { get; }
+        public Hall Hall { get; private set; }
+        public Movie Movie { get; private set; }
+
+        public Session() { }
 
         public Session(
             Hall hall,

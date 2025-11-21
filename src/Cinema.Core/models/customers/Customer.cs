@@ -57,21 +57,32 @@ public class Customer : Person
     {
         Email = email;
 
-        
         if (string.IsNullOrWhiteSpace(rawPassword))
             throw new ArgumentException("Password cannot be empty.", nameof(rawPassword));
 
         if (rawPassword.Length < 6)
             throw new ArgumentException("Password must be at least 6 characters long.", nameof(rawPassword));
 
-        var hash = HashedRawPassword(rawPassword); 
-        HashPassword = hash;                     
+        _hashPassword = HashedRawPassword(rawPassword);
 
         _all.Add(this);
     }
 
+    [JsonConstructor]
+    public Customer(
+            string firstName,
+            string lastName,
+            string email,
+            DateOnly dateOfBirth,
+            string hashPassword)
+            : base(firstName, lastName, dateOfBirth)
+    {
+        _email = email;
+        _hashPassword = hashPassword;
+    }
 
-    
+
+
     public void AddOrder(Order order)
     {
         if (order == null)
@@ -90,15 +101,8 @@ public class Customer : Person
     
     private string HashedRawPassword(string password)
     {
-        if (string.IsNullOrWhiteSpace(password))
-            throw new ArgumentException("Password cannot be empty.", nameof(password));
-
-        if (password.Length < 6)
-            throw new ArgumentException("Password must be at least 6 characters long.", nameof(password));
-
         using var sha256 = SHA256.Create();
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(bytes);
+        return Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(password)));
     }
 
     private static bool EmailIsValidStatic(string email)
