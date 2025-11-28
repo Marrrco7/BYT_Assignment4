@@ -1,104 +1,147 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cinema.Core.models.sales;
 
-namespace Cinema.Core.models.sessions
+namespace Cinema.Core.models.sessions;
+
+public class Session
 {
-    public class Session
+    // Static extent
+
+    private static readonly List<Session> _all = new();
+    public static IReadOnlyList<Session> All => _all.AsReadOnly();
+
+    // Fields
+
+    [JsonIgnore]
+    private readonly List<Review> _reviews = new();
+
+    // Properties
+
+    public DateTime StartAt { get; set; }
+
+    public string Language { get; set; }
+
+    public Hall Hall { get; private set; }
+
+    public Movie Movie { get; private set; }
+
+    [JsonIgnore]
+    public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
+
+    // Constructors
+
+    public Session()
     {
-        public static List<Session> All { get; } = new();
-        public DateTime StartAt { get; set; }
-        public string Language { get; set; }
-        public Hall Hall { get; private set; }
-        public Movie Movie { get; private set; }
+    }
 
-        public Session() { }
+    public Session(
+        Hall hall,
+        Movie movie,
+        DateTime startAt,
+        string language)
+    {
+        Hall = hall ?? throw new ArgumentNullException(nameof(hall));
+        Movie = movie ?? throw new ArgumentNullException(nameof(movie));
 
-        public Session(
-            Hall hall,
-            Movie movie,
-            DateTime startAt,
-            string language)
+        if (string.IsNullOrWhiteSpace(language))
+            throw new ArgumentException("Language cannot be empty.", nameof(language));
+
+        StartAt = startAt;
+        Language = language;
+
+        _all.Add(this);
+    }
+
+    // Associations: Reviews (Customer–Session via Review)
+
+    internal void AddReviewInternal(Review review)
+    {
+        if (review == null)
+            throw new ArgumentNullException(nameof(review));
+
+        if (!_reviews.Contains(review))
+            _reviews.Add(review);
+    }
+
+    // Static API / CRUD for Session extent
+
+    public static IReadOnlyList<Session> ListOfSessions()
+    {
+        return All;
+    }
+
+    public static void AddSession(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (!_all.Contains(session))
+            _all.Add(session);
+    }
+
+    public static bool DeleteSession(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        return _all.Remove(session);
+    }
+
+    public static void EditSession(
+        Session session,
+        DateTime newStartAt,
+        string newLanguage)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (string.IsNullOrWhiteSpace(newLanguage))
+            throw new ArgumentException("Language cannot be empty.", nameof(newLanguage));
+
+        session.StartAt = newStartAt;
+        session.Language = newLanguage;
+    }
+
+    public void SaveSession()
+    {
+        AddSession(this);
+    }
+
+    // Business logic
+
+    public DateTime CalculateEndAt()
+    {
+        return StartAt + Movie.Duration;
+    }
+
+    // Persistence
+
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
         {
-            Hall = hall ?? throw new ArgumentNullException(nameof(hall));
-            Movie = movie ?? throw new ArgumentNullException(nameof(movie));
+            WriteIndented = true,
+            ReferenceHandler = ReferenceHandler.Preserve
+        };
 
-            if (string.IsNullOrWhiteSpace(language))
-                throw new ArgumentException("Language cannot be empty.", nameof(language));
-            
-            StartAt = startAt;
-            Language = language;
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
 
-            All.Add(this);
-        }
-        
-        public static IReadOnlyList<Session> ListOfSessions()
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var sessions = JsonSerializer.Deserialize<List<Session>>(json, new JsonSerializerOptions
         {
-            return All.AsReadOnly();
-        }
+            ReferenceHandler = ReferenceHandler.Preserve
+        });
 
-        public static void AddSession(Session session)
-        {
-            if (session == null) throw new ArgumentNullException(nameof(session));
-
-            if (!All.Contains(session))
-                All.Add(session);
-        }
-
-        public static bool DeleteSession(Session session)
-        {
-            if (session == null) throw new ArgumentNullException(nameof(session));
-            return All.Remove(session);
-        }
-
-        public static void EditSession(
-            Session session,
-            DateTime newStartAt,
-            string newLanguage)
-        {
-            if (session == null) throw new ArgumentNullException(nameof(session));
-
-            session.StartAt = newStartAt;
-            session.Language = newLanguage;
-        }
-        
-        public void SaveSession()
-        {
-            AddSession(this);
-        }
-
-        public DateTime CalculateEndAt()
-        {
-            return StartAt + Movie.Duration;
-
-        }
-
-        public static void SaveToFile(string filePath)
-        {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                ReferenceHandler = ReferenceHandler.Preserve
-            };
-
-            var json = JsonSerializer.Serialize(All, options);
-            File.WriteAllText(filePath, json);
-        }
-
-        public static void LoadFromFile(string filePath)
-        {
-            if (!File.Exists(filePath))
-                return;
-
-            var json = File.ReadAllText(filePath);
-            var sessions = JsonSerializer.Deserialize<List<Session>>(json, new JsonSerializerOptions
-            {
-                ReferenceHandler = ReferenceHandler.Preserve
-            });
-
-            All.Clear();
-            if (sessions != null)
-                All.AddRange(sessions);
-        }
-
+        _all.Clear();
+        if (sessions != null)
+            _all.AddRange(sessions);
     }
 }

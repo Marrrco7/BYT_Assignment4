@@ -8,11 +8,23 @@ using Cinema.Core.models.sales;
 
 public class Customer : Person
 {
+    // Static extent
+
     private static readonly List<Customer> _all = new();
     public static IReadOnlyList<Customer> All => _all.AsReadOnly();
 
+    // Fields
+
     private string _email;
     private string _hashPassword;
+
+    [JsonIgnore]
+    private readonly List<Order> _orders = new();
+
+    [JsonIgnore]
+    private readonly List<Review> _reviews = new();
+
+    // Properties
 
     public string Email
     {
@@ -42,10 +54,12 @@ public class Customer : Person
     }
 
     [JsonIgnore]
-    private readonly List<Order> _orders = new();
+    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
 
     [JsonIgnore]
-    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
+    public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
+
+    // Constructors
 
     public Customer(
         string firstName,
@@ -81,7 +95,7 @@ public class Customer : Person
         _hashPassword = hashPassword;
     }
 
-  
+    // Associations: Orders
 
     public void AddOrder(Order order)
     {
@@ -92,8 +106,7 @@ public class Customer : Person
             return;
 
         _orders.Add(order);
-
-        order.SetCustomerInternal(this);
+        order.SetCustomerInternal(this); 
     }
 
     public void RemoveOrder(Order order)
@@ -103,10 +116,9 @@ public class Customer : Person
 
         if (_orders.Remove(order))
         {
-            order.SetCustomerInternal(null);
+            order.SetCustomerInternal(null); 
         }
     }
-
 
     internal void AddOrderInternal(Order order)
     {
@@ -125,26 +137,27 @@ public class Customer : Person
         _orders.Remove(order);
     }
 
+    // Associations: Reviews (Customer–Session history via Review)
 
-
-    private string HashedRawPassword(string password)
+    internal void AddReviewInternal(Review review)
     {
-        using var sha256 = SHA256.Create();
-        return Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(password)));
+        if (review == null)
+            throw new ArgumentNullException(nameof(review));
+
+        if (!_reviews.Contains(review))
+            _reviews.Add(review);
     }
 
-    private static bool EmailIsValidStatic(string email)
+
+
+    // Business logic
+
+    public int GetBonusPoints()
     {
-        try
-        {
-            var addr = new MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
-        }
+        return _orders.Sum(o => o.CalculatePoints());
     }
+
+    // Persistence
 
     public static void SaveToFile(string filePath)
     {
@@ -172,8 +185,24 @@ public class Customer : Person
         }
     }
 
-    public int GetBonusPoints()
+    // Private helpers
+
+    private string HashedRawPassword(string password)
     {
-        return _orders.Sum(o => o.CalculatePoints());
+        using var sha256 = SHA256.Create();
+        return Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(password)));
+    }
+
+    private static bool EmailIsValidStatic(string email)
+    {
+        try
+        {
+            var addr = new MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

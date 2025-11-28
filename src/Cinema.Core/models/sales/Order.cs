@@ -21,14 +21,26 @@ public enum TypeOfOrder
 
 public class Order
 {
+    // Static extent
+
     private static readonly List<Order> _all = new();
     public static IReadOnlyList<Order> All => _all.AsReadOnly();
 
     private static int _counter = 0;
 
-    public int Id { get; private set; }
+    // Fields
 
     private DateTime _createdAt;
+    private TypeOfOrder _typeOfOrder;
+    private List<Ticket> _tickets = new();
+
+    // XOR
+    private Customer? _customer;
+    private Employee? _cashier;
+
+    // Properties
+
+    public int Id { get; private set; }
 
     public DateTime CreatedAt
     {
@@ -41,18 +53,15 @@ public class Order
         }
     }
 
-    private TypeOfOrder _typeOfOrder;
-
     public TypeOfOrder TypeOfOrder
     {
         get => _typeOfOrder;
-        private set { _typeOfOrder = value; }
+        private set => _typeOfOrder = value;
     }
 
     public OrderStatus Status { get; private set; }
-    public string? EmailForBonusPoints { get; private set; }
 
-    private List<Ticket> _tickets = new();
+    public string? EmailForBonusPoints { get; private set; }
 
     public List<Ticket> Tickets
     {
@@ -64,10 +73,6 @@ public class Order
             _tickets = value;
         }
     }
-
-    // XOR
-    private Customer? _customer;
-    private Employee? _cashier;
 
     public Customer? Customer => _customer;
 
@@ -89,6 +94,8 @@ public class Order
         }
     }
 
+    // Constructors
+
     public Order()
     {
     }
@@ -107,7 +114,7 @@ public class Order
         Tickets = tickets;
         EmailForBonusPoints = emailForBonusPoints;
 
-        _typeOfOrder = orderType;
+        TypeOfOrder = orderType;
 
         if (customer != null)
             SetCustomer(customer);
@@ -122,6 +129,7 @@ public class Order
         _all.Add(this);
     }
 
+    // Associations: Customer (0..1) – reverse connection
 
     public void SetCustomer(Customer? customer)
     {
@@ -148,13 +156,13 @@ public class Order
         ValidateXorRules();
     }
 
-
     internal void SetCustomerInternal(Customer? customer)
     {
         _customer = customer;
         ValidateXorRules();
     }
 
+    // Business logic
 
     public int CalculatePoints()
     {
@@ -163,17 +171,20 @@ public class Order
 
     private void ValidateXorRules()
     {
-        if (_typeOfOrder == TypeOfOrder.Online)
+        if (TypeOfOrder == TypeOfOrder.Online)
         {
             if (_customer == null && _cashier != null)
                 return;
 
-            if (_customer == null) throw new ArgumentException("Online order must have a customer.");
-            if (_cashier != null) throw new ArgumentException("Online order cannot have a cashier.");
+            if (_customer == null)
+                throw new ArgumentException("Online order must have a customer.");
+            if (_cashier != null)
+                throw new ArgumentException("Online order cannot have a cashier.");
         }
-        else if (_typeOfOrder == TypeOfOrder.BoxOffice)
+        else if (TypeOfOrder == TypeOfOrder.BoxOffice)
         {
-            if (_cashier == null) throw new ArgumentException("Box office order must have a cashier.");
+            if (_cashier == null)
+                throw new ArgumentException("Box office order must have a cashier.");
         }
     }
 
@@ -224,7 +235,8 @@ public class Order
                 $"Cannot refund order {Id}. Current status: {Status}");
 
         Status = OrderStatus.Refunded;
-        Console.WriteLine($"Order {Id} refunded for {(Customer != null ? Customer.Email : "unlinked customer")}.");
+        Console.WriteLine(
+            $"Order {Id} refunded for {(Customer != null ? Customer.Email : "unlinked customer")}.");
     }
 
     private void AssignTheOrderToCustomerByEmail()
@@ -235,12 +247,14 @@ public class Order
         Customer? matched = null;
 
         foreach (var c in Customer.All)
+        {
             if (c.Email != null &&
                 c.Email.Equals(EmailForBonusPoints, StringComparison.OrdinalIgnoreCase))
             {
                 matched = c;
                 break;
             }
+        }
 
         if (matched != null)
         {
@@ -254,6 +268,7 @@ public class Order
         }
     }
 
+    // Persistence
 
     public static void SaveToFile(string filePath)
     {
