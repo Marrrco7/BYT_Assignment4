@@ -37,7 +37,7 @@ public class Customer : Person
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("Password hash cannot be empty.", nameof(value));
 
-            _hashPassword = value;   
+            _hashPassword = value;
         }
     }
 
@@ -70,35 +70,63 @@ public class Customer : Person
 
     [JsonConstructor]
     public Customer(
-            string firstName,
-            string lastName,
-            string email,
-            DateOnly dateOfBirth,
-            string hashPassword)
-            : base(firstName, lastName, dateOfBirth)
+        string firstName,
+        string lastName,
+        string email,
+        DateOnly dateOfBirth,
+        string hashPassword)
+        : base(firstName, lastName, dateOfBirth)
     {
         _email = email;
         _hashPassword = hashPassword;
     }
 
-
+  
 
     public void AddOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
+
+        if (_orders.Contains(order))
+            return;
+
         _orders.Add(order);
+
+        order.SetCustomerInternal(this);
     }
 
     public void RemoveOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
+
+        if (_orders.Remove(order))
+        {
+            order.SetCustomerInternal(null);
+        }
+    }
+
+
+    internal void AddOrderInternal(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (!_orders.Contains(order))
+            _orders.Add(order);
+    }
+
+    internal void RemoveOrderInternal(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
         _orders.Remove(order);
     }
 
 
-    
+
     private string HashedRawPassword(string password)
     {
         using var sha256 = SHA256.Create();
@@ -118,7 +146,6 @@ public class Customer : Person
         }
     }
 
-    
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions

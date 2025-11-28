@@ -29,6 +29,7 @@ public class Order
     public int Id { get; private set; }
 
     private DateTime _createdAt;
+
     public DateTime CreatedAt
     {
         get => _createdAt;
@@ -39,22 +40,23 @@ public class Order
             _createdAt = value;
         }
     }
+
     private TypeOfOrder _typeOfOrder;
+
     public TypeOfOrder TypeOfOrder
     {
         get => _typeOfOrder;
-        private set
-        {
-            _typeOfOrder = value;
-        }
+        private set { _typeOfOrder = value; }
     }
+
     public OrderStatus Status { get; private set; }
     public string? EmailForBonusPoints { get; private set; }
 
     private List<Ticket> _tickets = new();
+
     public List<Ticket> Tickets
     {
-        get => _tickets;                    
+        get => _tickets;
         set
         {
             if (value == null || value.Count == 0)
@@ -63,20 +65,11 @@ public class Order
         }
     }
 
-
     // XOR
     private Customer? _customer;
     private Employee? _cashier;
 
-    private Customer? Customer
-    {
-        get => _customer;
-        set
-        {
-            _customer = value;
-            ValidateXorRules();
-        }
-    }
+    public Customer? Customer => _customer;
 
     public Employee? Cashier
     {
@@ -96,7 +89,9 @@ public class Order
         }
     }
 
-    public Order() { }
+    public Order()
+    {
+    }
 
     public Order(
         DateTime createdAt,
@@ -111,13 +106,14 @@ public class Order
         CreatedAt = createdAt;
         Tickets = tickets;
         EmailForBonusPoints = emailForBonusPoints;
-        
-        _customer = customer;
-        _cashier = cashier;
+
         _typeOfOrder = orderType;
 
-        if (customer != null) Customer = customer;
-        if (cashier != null) Cashier = cashier;
+        if (customer != null)
+            SetCustomer(customer);
+
+        if (cashier != null)
+            Cashier = cashier;
 
         ValidateXorRules();
 
@@ -126,11 +122,45 @@ public class Order
         _all.Add(this);
     }
 
+
+    public void SetCustomer(Customer? customer)
+    {
+        if (_customer == customer)
+            return;
+
+        if (_customer != null)
+        {
+            var oldCustomer = _customer;
+            _customer = null;
+            oldCustomer.RemoveOrderInternal(this);
+        }
+
+        if (customer != null)
+        {
+            _customer = customer;
+            customer.AddOrderInternal(this);
+        }
+        else
+        {
+            _customer = null;
+        }
+
+        ValidateXorRules();
+    }
+
+
+    internal void SetCustomerInternal(Customer? customer)
+    {
+        _customer = customer;
+        ValidateXorRules();
+    }
+
+
     public int CalculatePoints()
     {
         return Tickets.Count * 10;
     }
-    
+
     private void ValidateXorRules()
     {
         if (_typeOfOrder == TypeOfOrder.Online)
@@ -146,7 +176,7 @@ public class Order
             if (_cashier == null) throw new ArgumentException("Box office order must have a cashier.");
         }
     }
-    
+
     public void ViewOrder()
     {
         Console.WriteLine("\n--- Order Details ---");
@@ -214,9 +244,8 @@ public class Order
 
         if (matched != null)
         {
-            Customer = matched;
+            SetCustomer(matched);
             EmailForBonusPoints = matched.Email;
-            matched.AddOrder(this);
             Console.WriteLine($"Order {Id} automatically linked to {matched.Email}");
         }
         else
@@ -224,13 +253,14 @@ public class Order
             Console.WriteLine($"No customer found with email {EmailForBonusPoints}");
         }
     }
-    
+
+
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
         {
             WriteIndented = true,
-            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.Preserve
         };
 
         var json = JsonSerializer.Serialize(All, options);
@@ -245,15 +275,14 @@ public class Order
         var json = File.ReadAllText(filePath);
         var orders = JsonSerializer.Deserialize<List<Order>>(json, new JsonSerializerOptions
         {
-            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+            ReferenceHandler = ReferenceHandler.Preserve
         });
 
         _all.Clear();
         if (orders != null && orders.Any())
         {
             _all.AddRange(orders);
-            
-            _counter = orders.Max(o => o.Id); 
+            _counter = orders.Max(o => o.Id);
         }
     }
 }
