@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cinema.Core.models.roles;
 using Cinema.Core.models.sales;
 
 namespace Cinema.Core.models.sessions;
@@ -16,6 +17,9 @@ public class Session
     [JsonIgnore]
     private readonly List<Review> _reviews = new();
 
+    [JsonIgnore]
+    private readonly List<TechnicianRole> _technicians = new();
+
     // Properties
 
     public DateTime StartAt { get; set; }
@@ -28,6 +32,10 @@ public class Session
 
     [JsonIgnore]
     public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
+
+  
+    [JsonIgnore]
+    public IReadOnlyList<TechnicianRole> Technicians => _technicians.AsReadOnly();
 
     // Constructors
 
@@ -64,7 +72,53 @@ public class Session
             _reviews.Add(review);
     }
 
-    // Static API / CRUD for Session extent
+    // Associations
+
+    public void AddTechnician(TechnicianRole technician)
+    {
+        if (technician == null)
+            throw new ArgumentNullException(nameof(technician));
+
+        if (_technicians.Contains(technician))
+            return;
+
+        _technicians.Add(technician);
+        technician.AddSessionInternal(this); //  reverse connection
+    }
+
+    public void RemoveTechnician(TechnicianRole technician)
+    {
+        if (technician == null)
+            throw new ArgumentNullException(nameof(technician));
+
+        if (_technicians.Count <= 1)
+            throw new InvalidOperationException(
+                "Session must have at least one technician (1..* multiplicity).");
+
+        if (_technicians.Remove(technician))
+        {
+            technician.RemoveSessionInternal(this); //  reverse connection
+        }
+    }
+
+    internal void AddTechnicianInternal(TechnicianRole technician)
+    {
+        if (technician == null)
+            throw new ArgumentNullException(nameof(technician));
+
+        if (!_technicians.Contains(technician))
+            _technicians.Add(technician);
+    }
+
+    internal void RemoveTechnicianInternal(TechnicianRole technician)
+    {
+        if (technician == null)
+            throw new ArgumentNullException(nameof(technician));
+
+        _technicians.Remove(technician);
+    }
+
+    // Session extent
 
     public static IReadOnlyList<Session> ListOfSessions()
     {
