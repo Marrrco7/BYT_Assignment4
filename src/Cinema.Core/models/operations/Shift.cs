@@ -35,6 +35,8 @@ public class Shift
     public CleanerRole Cleaner { get; private set; }
     public Hall Hall { get; private set; }
     
+    public bool IsDeleted { get; private set; }
+    
     // Constructors
     public Shift(DateTime startTime, DateTime endTime, CleanerRole cleaner, Hall hall)
     {
@@ -95,5 +97,16 @@ public class Shift
     public TimeSpan CalculateDuration()
     {
         return EndTime - StartTime;
+    }
+    
+    public void EditShift(DateTime newStartTime, DateTime newEndTime)
+    {
+        StartTime = newStartTime;
+        EndTime = newEndTime;
+    }
+    
+    public void DeleteShift()
+    {
+        IsDeleted = true;
     }
 }
