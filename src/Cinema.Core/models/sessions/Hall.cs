@@ -23,8 +23,6 @@ public class Hall
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
     
-    private readonly List<Equipment> _equipment = new();
-    
     private readonly List<Movie> _movies = new();
     
     private static readonly List<Hall> _all = new();
@@ -43,6 +41,12 @@ public class Hall
     
     [JsonIgnore]
     public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
+    
+    [JsonIgnore]
+    private readonly List<Equipment> _equipment = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<Equipment> Equipment => _equipment.AsReadOnly();
 
     // Constructors
     
@@ -74,13 +78,6 @@ public class Hall
     {
         _seatsByNumber.TryGetValue(seatNumber, out var seat);
         return seat;
-    }
-
-
-    public void AddEquipment(Equipment equipment)
-    {
-        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
-        _equipment.Add(equipment);
     }
     
 
@@ -161,6 +158,18 @@ public class Hall
             throw new ArgumentNullException(nameof(session));
 
         _sessions.Remove(session);
+    }
+    
+    // Equipment
+    internal void AddEquipmentInternal(Equipment equipment)
+    {
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+        
+        if (equipment.Hall != this)
+            throw new InvalidOperationException("Equipment must be linked to this Hall instance.");
+             
+        if (!_equipment.Contains(equipment))
+            _equipment.Add(equipment);
     }
     
 }
