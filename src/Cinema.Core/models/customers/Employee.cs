@@ -7,13 +7,16 @@ namespace Cinema.Core.models.customers;
 
 public sealed class Employee : Person
 {
+    // Static extent
     private static readonly List<Employee> _all = new();
     public static IReadOnlyList<Employee> All => _all.AsReadOnly();
 
+    // Fields
     private DateOnly _hiringDate;
     private string _phoneNumber;
     private EmploymentContract _contract;
 
+    // Basic properties
     public DateOnly HiringDate
     {
         get => _hiringDate;
@@ -35,7 +38,6 @@ public sealed class Employee : Person
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("Phone number cannot be empty.", nameof(value));
 
-
             _phoneNumber = value;
         }
     }
@@ -46,17 +48,22 @@ public sealed class Employee : Person
         private set => _contract = value ?? throw new ArgumentNullException(nameof(value));
     }
 
+    // Employee roles
     private readonly List<EmployeeRole> _roles = new();
     public IReadOnlyList<EmployeeRole> Roles => _roles.AsReadOnly();
+
+    // REFLEX ASSOCIATION
 
     [JsonIgnore]
     public Employee? Supervisor { get; private set; }
 
     [JsonIgnore]
     private readonly List<Employee> _subordinates = new();
+
     [JsonIgnore]
     public IReadOnlyList<Employee> Subordinates => _subordinates.AsReadOnly();
 
+    // Constructor
     public Employee(
         string firstName,
         string lastName,
@@ -66,18 +73,14 @@ public sealed class Employee : Person
         EmploymentContract contract)
         : base(firstName, lastName, dateOfBirth)
     {
-        HiringDate  = hiringDate;   
-        PhoneNumber = phoneNumber;  
-        Contract    = contract;     
+        HiringDate = hiringDate;
+        PhoneNumber = phoneNumber;
+        Contract = contract;
 
         _all.Add(this);
     }
 
-    public void ChangeContract(EmploymentContract newContract)
-    {
-        Contract = newContract; 
-    }
-
+    // Roles
     public void AddRole(EmployeeRole role)
     {
         if (role == null)
@@ -95,6 +98,48 @@ public sealed class Employee : Person
         _roles.Remove(role);
     }
 
+    // REFLEX ASSOCIATION — Supervisor side
+
+    public void SetSupervisor(Employee? supervisor)
+    {
+        if (ReferenceEquals(supervisor, this))
+            throw new InvalidOperationException("Employee cannot be their own supervisor.");
+
+        if (Supervisor == supervisor)
+            return;
+
+        if (Supervisor != null)
+        {
+            var oldSupervisor = Supervisor;
+            Supervisor = null;
+
+            oldSupervisor._subordinates.Remove(this);
+        }
+
+        if (supervisor != null)
+        {
+            Supervisor = supervisor;
+            if (!supervisor._subordinates.Contains(this))
+                supervisor._subordinates.Add(this);
+        }
+    }
+
+    
+    public void RemoveSupervisor()
+    {
+        SetSupervisor(null);
+    }
+
+    internal void SetSupervisorInternal(Employee? supervisor)
+    {
+        if (ReferenceEquals(supervisor, this))
+            throw new InvalidOperationException("Employee cannot be their own supervisor.");
+
+        Supervisor = supervisor;
+    }
+
+    // REFLEX ASSOCIATION — Subordinates side
+
     public void AddSubordinate(Employee employee)
     {
         if (employee == null)
@@ -103,11 +148,11 @@ public sealed class Employee : Person
         if (ReferenceEquals(employee, this))
             throw new InvalidOperationException("Employee cannot supervise themselves.");
 
-        if (!_subordinates.Contains(employee))
-        {
-            _subordinates.Add(employee);
-            employee.Supervisor = this;
-        }
+        if (_subordinates.Contains(employee))
+            return;
+
+        _subordinates.Add(employee);
+        employee.SetSupervisorInternal(this); // internal reverse connection
     }
 
     public void RemoveSubordinate(Employee employee)
@@ -115,35 +160,20 @@ public sealed class Employee : Person
         if (employee == null)
             throw new ArgumentNullException(nameof(employee));
 
-        if (_subordinates.Remove(employee) && employee.Supervisor == this)
+        if (_subordinates.Remove(employee))
         {
-            employee.Supervisor = null;
+            if (employee.Supervisor == this)
+                employee.SetSupervisorInternal(null);
         }
     }
 
-    public void AssignSupervisor(Employee supervisor)
+    // Contract
+    public void ChangeContract(EmploymentContract newContract)
     {
-        if (supervisor == null)
-            throw new ArgumentNullException(nameof(supervisor));
-
-        if (ReferenceEquals(supervisor, this))
-            throw new InvalidOperationException("Employee cannot be their own supervisor.");
-
-        Supervisor = supervisor;
-        if (!supervisor._subordinates.Contains(this))
-            supervisor._subordinates.Add(this);
+        Contract = newContract;
     }
 
-    public void RemoveSupervisor()
-    {
-        if (Supervisor == null)
-            throw new InvalidOperationException("This employee does not have a supervisor.");
-
-        Supervisor._subordinates.Remove(this);
-        Supervisor = null;
-    }
-
-    
+    // Persistence
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions

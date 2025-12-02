@@ -1,16 +1,26 @@
 using System.Text.Json;
-using Cinema.Core.models.customers; 
-using Cinema.Core.models.sessions; 
+using Cinema.Core.models.customers;
+using Cinema.Core.models.sessions;
 
 namespace Cinema.Core.models.sales;
 
 public class Review
 {
+    // Static extent
+
+    private static readonly List<Review> _all = new();
+    public static IReadOnlyList<Review> All => _all.AsReadOnly();
+
+    // Fields
+
     private int _ratingOfMovie;
     private int _ratingOfHall;
-    
-    public DateTime Date { get; set; }
-    public string Comment { get; set; }
+
+    // Properties
+
+    public DateTime Date { get; private set; }
+
+    public string Comment { get; private set; }
 
     public int RatingOfMovie
     {
@@ -18,45 +28,72 @@ public class Review
         private set
         {
             if (value < 1 || value > 5)
-            {
                 throw new ArgumentException("Movie rating must be an integer between 1 and 5.");
-            }
+
             _ratingOfMovie = value;
         }
     }
-    
+
     public int RatingOfHall
     {
         get => _ratingOfHall;
-        set
+        private set
         {
             if (value < 1 || value > 5)
-            {
                 throw new ArgumentException("Hall rating must be an integer between 1 and 5.");
-            }
-            _ratingOfHall = value; 
+
+            _ratingOfHall = value;
         }
     }
-    
-    public Customer Author { get; set; }
-    public Movie ReviewedMovie { get; set; }
-    
-    private static readonly List<Review> _all = new();
-    public static IReadOnlyList<Review> All => _all.AsReadOnly();
-    
-    public Review(int ratingOfMovie, int ratingOfHall, DateTime date, string comment, Customer author, Movie reviewedMovie)
+
+    public bool IsDeleted { get; private set; }                             // add to the diagram                        
+
+    public Customer Author { get; private set; }
+
+    public Session ReviewedSession { get; private set; }
+
+    // Constructor
+
+    public Review(
+        int ratingOfMovie,
+        int ratingOfHall,
+        DateTime date,
+        string comment,
+        Customer author,
+        Session reviewedSession)
     {
-        RatingOfMovie = ratingOfMovie;
-        RatingOfHall = ratingOfHall;
-        
-        Date = date;
-        Comment = comment;
-        Author = author;
-        ReviewedMovie = reviewedMovie;
-        
+        RatingOfMovie   = ratingOfMovie;
+        RatingOfHall    = ratingOfHall;
+        Date            = date;
+        Comment         = comment ?? string.Empty;
+
+        Author          = author          ?? throw new ArgumentNullException(nameof(author));
+        ReviewedSession = reviewedSession ?? throw new ArgumentNullException(nameof(reviewedSession));
+
+        // reverse connection
+        Author.AddReviewInternal(this);
+        ReviewedSession.AddReviewInternal(this);
+
         _all.Add(this);
     }
-    
+
+    // Business logic
+
+    public void Edit(int newMovieRating, int newHallRating, string newComment)
+    {
+        RatingOfMovie = newMovieRating;
+        RatingOfHall  = newHallRating;
+        Comment       = newComment ?? string.Empty;
+        Date          = DateTime.Now; 
+    }
+
+    public void Delete()
+    {
+        IsDeleted = true;
+    }
+
+    // Persistence
+
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
