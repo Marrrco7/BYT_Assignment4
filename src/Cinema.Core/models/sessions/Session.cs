@@ -23,8 +23,20 @@ public class Session
     // Properties
 
     public DateTime StartAt { get; set; }
+    
+    private string _language;
 
-    public string Language { get; set; }
+    public string Language
+    {
+        get => _language;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Language cannot be empty.", nameof(value));
+            
+            _language = value;
+        }
+    }
 
     public Hall Hall { get; private set; }
 
@@ -41,9 +53,7 @@ public class Session
     // Constructors
 
     // btw should we have empty constructor or it would be better if we write json ignore?
-    public Session()
-    {
-    }
+    public Session() {}
 
     public Session(
         Hall hall,
@@ -53,9 +63,6 @@ public class Session
     {
         Hall = hall ?? throw new ArgumentNullException(nameof(hall));
         Movie = movie ?? throw new ArgumentNullException(nameof(movie));
-
-        if (string.IsNullOrWhiteSpace(language))
-            throw new ArgumentException("Language cannot be empty.", nameof(language));
 
         StartAt = startAt;
         Language = language;
