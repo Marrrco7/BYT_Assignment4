@@ -7,12 +7,12 @@ namespace Cinema.Core.models.sessions;
 
 public class Session
 {
-    // Static extent
+    // =-=-=-=- Static extent =-=-=-=-
 
     private static readonly List<Session> _all = new();
     public static IReadOnlyList<Session> All => _all.AsReadOnly();
 
-    // Fields
+    // =-=-=-=- Fields =-=-=-=-
 
     [JsonIgnore]
     private readonly List<Review> _reviews = new();
@@ -20,11 +20,17 @@ public class Session
     [JsonIgnore]
     private readonly List<TechnicianRole> _technicians = new();
 
-    // Properties
+    [JsonIgnore]
+    private readonly List<Ticket> _tickets = new();
+
+    [JsonIgnore]
+    private readonly List<Promotion> _promotions = new();
+
+    // =-=-=-=- Properties =-=-=-=-
 
     public DateTime StartAt { get; set; }
 
-    public string Language { get; set; }
+    public string Language { get; set; } = string.Empty;
 
     public Hall Hall { get; private set; }
 
@@ -33,11 +39,16 @@ public class Session
     [JsonIgnore]
     public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
 
-  
     [JsonIgnore]
     public IReadOnlyList<TechnicianRole> Technicians => _technicians.AsReadOnly();
 
-    // Constructors
+    [JsonIgnore]
+    public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
+
+    [JsonIgnore]
+    public IReadOnlyList<Promotion> Promotions => _promotions.AsReadOnly();
+
+    // =-=-=-=- Constructors =-=-=-=-
 
     public Session()
     {
@@ -61,7 +72,7 @@ public class Session
         _all.Add(this);
     }
 
-    // Associations: Reviews (Customer–Session via Review)
+    // =-=-=-=-Associations Reviews  =-=-=-=-
 
     internal void AddReviewInternal(Review review)
     {
@@ -72,7 +83,7 @@ public class Session
             _reviews.Add(review);
     }
 
-    // Associations
+    //  =-=-=-=- Associations TechnicianRole =-=-=-=-
 
     public void AddTechnician(TechnicianRole technician)
     {
@@ -118,7 +129,68 @@ public class Session
         _technicians.Remove(technician);
     }
 
-    // Session extent
+    //  =-=-=-=- Associations =-=-=-=-Ticket =-=-=-=-
+
+    internal void AddTicketInternal(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        if (!_tickets.Contains(ticket))
+            _tickets.Add(ticket);
+    }
+
+    internal void RemoveTicketInternal(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        _tickets.Remove(ticket);
+    }
+
+    //  =-=-=-=- Associations Promotion=-=-=-=-
+
+    public void AddPromotion(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        if (_promotions.Contains(promotion))
+            return;
+
+        _promotions.Add(promotion);
+        promotion.AddSessionInternal(this); // reverse
+    }
+
+    public void RemovePromotion(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        if (_promotions.Remove(promotion))
+        {
+            promotion.RemoveSessionInternal(this); // reverse
+        }
+    }
+
+    internal void AddPromotionInternal(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        if (!_promotions.Contains(promotion))
+            _promotions.Add(promotion);
+    }
+
+    internal void RemovePromotionInternal(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        _promotions.Remove(promotion);
+    }
+
+    //  =-=-=-=- Session extent =-=-=-=- 
 
     public static IReadOnlyList<Session> ListOfSessions()
     {
@@ -162,14 +234,14 @@ public class Session
         AddSession(this);
     }
 
-    // Business logic
+    //  =-=-=-=- Business logic =-=-=-=-
 
     public DateTime CalculateEndAt()
     {
         return StartAt + Movie.Duration;
     }
 
-    // Persistence
+    //  =-=-=-=- Persistence =-=-=-=-
 
     public static void SaveToFile(string filePath)
     {
