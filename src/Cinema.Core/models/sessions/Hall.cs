@@ -17,10 +17,18 @@ public class Hall
     
     private static readonly List<Hall> _all = new();
     private static IReadOnlyList<Hall> All => _all.AsReadOnly();
+    
     [JsonIgnore]
     private readonly List<Shift> _shifts = new();
+    
+    [JsonIgnore]
+    private readonly List<Session> _sessions = new();
+    
     [JsonIgnore]
     public IReadOnlyList<Shift> Shifts => _shifts.AsReadOnly();
+    
+    [JsonIgnore]
+    public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
 
     // Constructors
     public Hall(string name)
@@ -102,6 +110,8 @@ public class Hall
             _all.AddRange(halls);
     }
     
+    // Shift
+    
     internal void AddShiftInternal(Shift shift)
     {
         if (shift == null)
@@ -117,6 +127,24 @@ public class Hall
             throw new ArgumentNullException(nameof(shift));
 
         _shifts.Remove(shift);
+    }
+    
+    // Session
+    internal void AddSessionInternal(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session))
+            _sessions.Add(session);
+    }
+
+    internal void RemoveSessionInternal(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        _sessions.Remove(session);
     }
     
 }
