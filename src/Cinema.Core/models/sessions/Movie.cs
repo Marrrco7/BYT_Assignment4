@@ -5,10 +5,45 @@ namespace Cinema.Core.models.sessions;
 public class Movie
 {
     private static List<Movie> All { get; } = new();
-    private string Title { get; set; }
-    public TimeSpan Duration { get; private set; }
+    private string _title;
+
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Title cannot be empty.", nameof(value));
+            _title = value;
+        }
+    }
+    private TimeSpan _duration;
+
+    public TimeSpan Duration
+    {
+        get => _duration;
+        set
+        {
+            if (value <= TimeSpan.Zero)
+                throw new ArgumentException("Duration must be positive.", nameof(value));
+            _duration = value;
+        }
+    }
     public List<string> Genres { get; }
-    public int? AgeRestriction { get; private set; }
+    private int? _ageRestriction;
+
+    public int? AgeRestriction
+    {
+        get => _ageRestriction;
+        set
+        {
+            if (value is < 0)
+                throw new ArgumentException("Age restriction must be non-negative.", nameof(value));
+            _ageRestriction = value;
+        }
+    }
+    
+    // Associations
     [JsonIgnore] private readonly List<Session> _sessions = new();
     [JsonIgnore] public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
 
@@ -18,11 +53,6 @@ public class Movie
         IEnumerable<string> genres,
         int? ageRestriction = null)
     {
-        if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("Title cannot be empty.", nameof(title));
-
-        if (duration <= TimeSpan.Zero)
-            throw new ArgumentException("Duration must be positive.", nameof(duration));
 
         if (genres == null)
             throw new ArgumentNullException(nameof(genres));
@@ -34,9 +64,6 @@ public class Movie
         if (genreList.Count == 0)
             throw new ArgumentException("Movie must have at least one genre.", nameof(genres));
 
-        if (ageRestriction is < 0)
-            throw new ArgumentException("Age restriction must be non-negative.", nameof(ageRestriction));
-
         Title = title;
         Duration = duration;
         Genres = genreList;
@@ -45,6 +72,7 @@ public class Movie
         All.Add(this);
     }
 
+    // Business logic
 
     public static IReadOnlyList<Movie> ListOfAllMovies()
     {
