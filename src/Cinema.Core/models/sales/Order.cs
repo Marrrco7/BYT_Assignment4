@@ -32,7 +32,9 @@ public class Order
 
     private DateTime _createdAt;
     private TypeOfOrder _typeOfOrder;
-    private List<Ticket> _tickets = new();
+    
+    [JsonIgnore]
+    private readonly List<Ticket> _tickets = new();
 
     // XOR
     private Customer? _customer;
@@ -63,16 +65,7 @@ public class Order
 
     public string? EmailForBonusPoints { get; private set; }
 
-    public List<Ticket> Tickets
-    {
-        get => _tickets;
-        set
-        {
-            if (value == null || value.Count == 0)
-                throw new ArgumentException("Order must contain at least one ticket.");
-            _tickets = value;
-        }
-    }
+    public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
 
     public Customer? Customer => _customer;
 
@@ -111,10 +104,11 @@ public class Order
     {
         Id = ++_counter;
         CreatedAt = createdAt;
-        Tickets = tickets;
         EmailForBonusPoints = emailForBonusPoints;
 
         TypeOfOrder = orderType;
+        
+        SetTickets(tickets);
 
         if (customer != null)
             SetCustomer(customer);
@@ -128,6 +122,7 @@ public class Order
 
         _all.Add(this);
     }
+    
 
     // Associations: Customer (0..1) – reverse connection
 
@@ -299,5 +294,52 @@ public class Order
             _all.AddRange(orders);
             _counter = orders.Max(o => o.Id);
         }
+    }
+    
+    // Composition | Ticket
+    
+    private void SetTickets(IEnumerable<Ticket> tickets)
+    {
+        var ticketList = tickets?.ToList() ?? new List<Ticket>();
+        
+        if (ticketList.Count == 0)
+            throw new ArgumentException("Order must contain at least one ticket.");
+
+        foreach (var ticket in ticketList)
+        {
+            if (ticket.Order != null && ticket.Order != this)
+                throw new InvalidOperationException("Ticket is already part of another Order (Composition rule: Part cannot be shared).");
+            
+            if (!_tickets.Contains(ticket))
+            {
+                _tickets.Add(ticket);
+                ticket.Order = this;
+            }
+        }
+    }
+    
+    internal void RemoveTicketInternal(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+        
+        _tickets.Remove(ticket);
+    }
+
+    //delete method for the Whole
+    public static bool DeleteOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+        
+        if (order._tickets.Any())
+        {
+            foreach (var ticket in order._tickets.ToList())
+            {
+                Ticket.DeletePart(ticket);
+            }
+        }
+        
+        return _all.Remove(order);
     }
 }
