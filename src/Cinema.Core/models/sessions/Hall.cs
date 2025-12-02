@@ -6,8 +6,20 @@ namespace Cinema.Core.models.sessions;
 
 public class Hall
 {
+    // Fields
+    
     private static readonly int Capacity = 150;
-    private string Name { get; set; }
+    private string _name; 
+    public string Name 
+    { 
+        get => _name; 
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Hall name cannot be empty.", nameof(value));
+            _name = value;
+        }
+    }
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
     
@@ -17,6 +29,8 @@ public class Hall
     
     private static readonly List<Hall> _all = new();
     private static IReadOnlyList<Hall> All => _all.AsReadOnly();
+    
+    // Associations
     
     [JsonIgnore]
     private readonly List<Shift> _shifts = new();
@@ -31,14 +45,14 @@ public class Hall
     public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
 
     // Constructors
+    
     public Hall(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Hall name cannot be empty.", nameof(name));
-
         Name = name;
     }
-
+    
+    // Business logic
+    
     public void AddSeat(int seatNumber, Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
@@ -81,6 +95,8 @@ public class Hall
         if (movie == null) throw new ArgumentNullException(nameof(movie));
         _movies.Remove(movie);
     }
+    
+    // Persistence
     
     public static void SaveToFile(string filePath)
     {
