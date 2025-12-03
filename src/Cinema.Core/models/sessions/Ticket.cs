@@ -20,6 +20,7 @@ namespace Cinema.Core.models.sessions
             Seat = seat ?? throw new ArgumentNullException(nameof(seat));
             Order = order ?? throw new ArgumentNullException(nameof(order));
 
+            Seat.AddTicketInternal(this);
             All.Add(this);
         }
         
@@ -55,7 +56,22 @@ namespace Cinema.Core.models.sessions
         
         // Order    
         
-        internal static void DeletePart(Ticket ticket)
+        internal static void DeleteOrderPart(Ticket ticket)
+        {
+            if (ticket == null)
+                throw new ArgumentNullException(nameof(ticket));
+            
+            if (!All.Contains(ticket))
+                return;
+            
+            ticket.Order.RemoveTicketInternal(ticket); 
+            
+            All.Remove(ticket); 
+        }
+        
+        // Seat
+        
+        internal static void DeleteSeatPart(Ticket ticket)
         {
             if (ticket == null)
                 throw new ArgumentNullException(nameof(ticket));
