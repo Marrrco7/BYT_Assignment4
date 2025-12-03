@@ -1,14 +1,18 @@
 using System;
 using System.Collections.Generic;
 using Cinema.Core.models.operations;
+using System.Text.Json.Serialization; // Added
 
 namespace Cinema.Core.models.roles;
 
 public sealed class CleanerRole : EmployeeRole
 {
     private DateOnly _lastSafetyTrainingDate;
-
     public bool HasSafetyTraining { get; private set; }
+    [JsonIgnore]
+    private readonly List<Shift> _shifts = new();
+    [JsonIgnore]
+    public IReadOnlyList<Shift> Shifts => _shifts.AsReadOnly();
 
     public DateOnly LastSafetyTrainingDate
     {
@@ -44,5 +48,22 @@ public sealed class CleanerRole : EmployeeRole
         var avgMinutes = totalMinutes / shifts.Count;
 
         return TimeSpan.FromMinutes(avgMinutes);
+    }
+    
+    internal void AddShiftInternal(Shift shift)
+    {
+        if (shift == null)
+            throw new ArgumentNullException(nameof(shift));
+
+        if (!_shifts.Contains(shift))
+            _shifts.Add(shift);
+    }
+    
+    internal void RemoveShiftInternal(Shift shift)
+    {
+        if (shift == null)
+            throw new ArgumentNullException(nameof(shift));
+
+        _shifts.Remove(shift);
     }
 }

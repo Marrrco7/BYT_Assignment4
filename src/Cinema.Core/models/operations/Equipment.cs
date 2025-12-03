@@ -33,10 +33,10 @@ public class Equipment
 
     // Properties
 
-    private Hall Hall
+    public Hall Hall
     {
         get => _hall;
-        set
+        private set
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(Hall), "Equipment must belong to a hall");
@@ -55,8 +55,8 @@ public class Equipment
         Type = type;
         DateOfLastCheckUp = dateOfLastCheckUp;
         Hall = hall;
-
-        hall.AddEquipment(this);
+        
+        hall.AddEquipmentInternal(this);
         _all.Add(this);
     }
 

@@ -23,12 +23,25 @@ public class Session
     // Properties
 
     public DateTime StartAt { get; set; }
+    
+    private string _language;
 
-    public string Language { get; set; }
+    public string Language
+    {
+        get => _language;
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Language cannot be empty.", nameof(value));
+            
+            _language = value;
+        }
+    }
 
     public Hall Hall { get; private set; }
 
     public Movie Movie { get; private set; }
+    public bool IsDeleted { get; private set; } // add to diagram
 
     [JsonIgnore]
     public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
@@ -39,9 +52,8 @@ public class Session
 
     // Constructors
 
-    public Session()
-    {
-    }
+    // btw should we have empty constructor or it would be better if we write json ignore?
+    public Session() {}
 
     public Session(
         Hall hall,
@@ -52,11 +64,11 @@ public class Session
         Hall = hall ?? throw new ArgumentNullException(nameof(hall));
         Movie = movie ?? throw new ArgumentNullException(nameof(movie));
 
-        if (string.IsNullOrWhiteSpace(language))
-            throw new ArgumentException("Language cannot be empty.", nameof(language));
-
         StartAt = startAt;
         Language = language;
+        
+        Hall.AddSessionInternal(this);
+        Movie.AddSessionInternal(this);
 
         _all.Add(this);
     }
@@ -83,7 +95,7 @@ public class Session
             return;
 
         _technicians.Add(technician);
-        technician.AddSessionInternal(this); //  reverse connection
+        technician.AddSessionInternal(this); // reverse connection
     }
 
     public void RemoveTechnician(TechnicianRole technician)
@@ -133,13 +145,10 @@ public class Session
         if (!_all.Contains(session))
             _all.Add(session);
     }
-
-    public static bool DeleteSession(Session session)
+    
+    public void DeleteSession()
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
-
-        return _all.Remove(session);
+        IsDeleted = true;
     }
 
     public static void EditSession(

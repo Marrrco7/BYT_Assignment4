@@ -6,26 +6,57 @@ namespace Cinema.Core.models.sessions;
 
 public class Hall
 {
+    // Fields
+    
     private static readonly int Capacity = 150;
-    private string Name { get; set; }
+    private string _name; 
+    public string Name 
+    { 
+        get => _name; 
+        private set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("Hall name cannot be empty.", nameof(value));
+            _name = value;
+        }
+    }
     
     private readonly Dictionary<int, Seat> _seatsByNumber = new();
-    
-    private readonly List<Equipment> _equipment = new();
     
     private readonly List<Movie> _movies = new();
     
     private static readonly List<Hall> _all = new();
     private static IReadOnlyList<Hall> All => _all.AsReadOnly();
+    
+    // Associations
+    
+    [JsonIgnore]
+    private readonly List<Shift> _shifts = new();
+    
+    [JsonIgnore]
+    private readonly List<Session> _sessions = new();
+    
+    [JsonIgnore]
+    public IReadOnlyList<Shift> Shifts => _shifts.AsReadOnly();
+    
+    [JsonIgnore]
+    public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
+    
+    [JsonIgnore]
+    private readonly List<Equipment> _equipment = new();
 
+    [JsonIgnore]
+    public IReadOnlyList<Equipment> Equipment => _equipment.AsReadOnly();
+
+    // Constructors
+    
     public Hall(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Hall name cannot be empty.", nameof(name));
-
         Name = name;
     }
-
+    
+    // Business logic
+    
     public void AddSeat(int seatNumber, Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
@@ -48,13 +79,6 @@ public class Hall
         _seatsByNumber.TryGetValue(seatNumber, out var seat);
         return seat;
     }
-
-
-    public void AddEquipment(Equipment equipment)
-    {
-        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
-        _equipment.Add(equipment);
-    }
     
 
     public void AddMovie(Movie movie)
@@ -68,6 +92,8 @@ public class Hall
         if (movie == null) throw new ArgumentNullException(nameof(movie));
         _movies.Remove(movie);
     }
+    
+    // Persistence
     
     public static void SaveToFile(string filePath)
     {
@@ -96,6 +122,54 @@ public class Hall
         if (halls != null)
             _all.AddRange(halls);
     }
+    
+    // Shift
+    
+    internal void AddShiftInternal(Shift shift)
+    {
+        if (shift == null)
+            throw new ArgumentNullException(nameof(shift));
 
+        if (!_shifts.Contains(shift))
+            _shifts.Add(shift);
+    }
+
+    internal void RemoveShiftInternal(Shift shift)
+    {
+        if (shift == null)
+            throw new ArgumentNullException(nameof(shift));
+
+        _shifts.Remove(shift);
+    }
+    
+    // Session
+    internal void AddSessionInternal(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session))
+            _sessions.Add(session);
+    }
+
+    internal void RemoveSessionInternal(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        _sessions.Remove(session);
+    }
+    
+    // Equipment
+    internal void AddEquipmentInternal(Equipment equipment)
+    {
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+        
+        if (equipment.Hall != this)
+            throw new InvalidOperationException("Equipment must be linked to this Hall instance.");
+             
+        if (!_equipment.Contains(equipment))
+            _equipment.Add(equipment);
+    }
     
 }

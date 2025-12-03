@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Cinema.Core.models.sessions
 {
     public enum SeatType
@@ -8,37 +10,80 @@ namespace Cinema.Core.models.sessions
     
     public class Seat
     { 
+        // Fields
         public static List<Seat> All { get; } = new();
         public SeatType Type { get; private set; }
-        public decimal NormalPrice { get; private set; }
+        
+        private decimal _price;
+
+        public decimal NormalPrice
+        {
+            get => _price;
+            private set
+            {
+                if (value < 0)
+                    throw new ArgumentException("Price cannot be negative.", nameof(value));
+                
+                _price = value;
+            }
+        }
+
         public bool IsAccessible { get; private set; }
         public decimal TicketMultiplier { get; private set; } = 1.8m;
+        
+        // Associations
+        
+        [JsonIgnore]
+        private readonly List<Ticket> _tickets = new();
+        
+        [JsonIgnore]
+        public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
 
+        // Constructor
         public Seat(
             SeatType type,
             decimal normalPrice,
             bool isAccessible,
             decimal? ticketMultiplier = null)
         {
-            if (normalPrice < 0)
-                throw new ArgumentException("Price cannot be negative.", nameof(normalPrice));
-            
             Type = type;
             NormalPrice = normalPrice;
             IsAccessible = isAccessible;
 
+            // what is it?
             if (ticketMultiplier.HasValue)
                 TicketMultiplier = ticketMultiplier.Value;
 
             All.Add(this);
         }
 
+        // Business logic 
         public decimal CalculateFinalSeatPrice()
         {
             if (Type == SeatType.Vip)
                 return NormalPrice * TicketMultiplier;
 
             return NormalPrice;
+        }
+        
+        // Ticket
+        internal void AddTicketInternal(Ticket ticket)
+        {
+            if (ticket == null)
+                throw new ArgumentNullException(nameof(ticket));
+            
+            if (ticket.Seat != this)
+                throw new InvalidOperationException("Ticket must be linked to this Seat instance.");
+
+            if (!_tickets.Contains(ticket))
+                _tickets.Add(ticket);
+        }
+        
+        internal void RemoveTicketInternal(Ticket ticket)
+        {
+            if (ticket == null)
+                throw new ArgumentNullException(nameof(ticket));
+            _tickets.Remove(ticket);
         }
     }
 }
