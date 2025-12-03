@@ -13,7 +13,21 @@ namespace Cinema.Core.models.sessions
         // Fields
         public static List<Seat> All { get; } = new();
         public SeatType Type { get; private set; }
-        public decimal NormalPrice { get; private set; }
+        
+        private decimal _price;
+
+        public decimal NormalPrice
+        {
+            get => _price;
+            private set
+            {
+                if (value < 0)
+                    throw new ArgumentException("Price cannot be negative.", nameof(value));
+                
+                _price = value;
+            }
+        }
+
         public bool IsAccessible { get; private set; }
         public decimal TicketMultiplier { get; private set; } = 1.8m;
         
@@ -32,13 +46,11 @@ namespace Cinema.Core.models.sessions
             bool isAccessible,
             decimal? ticketMultiplier = null)
         {
-            if (normalPrice < 0)
-                throw new ArgumentException("Price cannot be negative.", nameof(normalPrice));
-            
             Type = type;
             NormalPrice = normalPrice;
             IsAccessible = isAccessible;
 
+            // what is it?
             if (ticketMultiplier.HasValue)
                 TicketMultiplier = ticketMultiplier.Value;
 
