@@ -7,55 +7,86 @@ namespace Cinema.Core.models.sessions;
 public class Hall
 {
     private static readonly int Capacity = 150;
-    private string Name { get; set; }
-    
-    private readonly Dictionary<int, Seat> _seatsByNumber = new();
-    
+
+    private string _name;
+    public string Name => _name;
+
+    // Qualified association: SeatId -> Seat
+    private readonly Dictionary<int, Seat> _seatsById = new();
+
     private readonly List<Equipment> _equipment = new();
-    
     private readonly List<Movie> _movies = new();
-    
+
     private static readonly List<Hall> _all = new();
-    private static IReadOnlyList<Hall> All => _all.AsReadOnly();
+    public static IReadOnlyList<Hall> All => _all.AsReadOnly();
 
     public Hall(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Hall name cannot be empty.", nameof(name));
 
-        Name = name;
+        _name = name;
+        _all.Add(this);
     }
 
-    public void AddSeat(int seatNumber, Seat seat)
+    // ---------------------------------------------------------------------
+    // Qualified Association: Hall contains Seats, key = SeatId
+    // ---------------------------------------------------------------------
+
+    public void AddSeat(Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
 
-        if (seatNumber <= 0)
-            throw new ArgumentException("Seat number must be positive.");
+        int id = seat.SeatId;
 
-        if (_seatsByNumber.ContainsKey(seatNumber))
-            throw new InvalidOperationException($"Seat {seatNumber} already exists in Hall {Name}.");
+        if (_seatsById.ContainsKey(id))
+            throw new InvalidOperationException(
+                $"Seat with id {id} already exists in Hall {Name}.");
 
-        if (_seatsByNumber.Count >= Capacity)
+        if (_seatsById.Count >= Capacity)
             throw new InvalidOperationException(
                 $"Hall {Name} reached maximum capacity of {Capacity} seats.");
 
-        _seatsByNumber[seatNumber] = seat;
+        _seatsById[id] = seat;
+
+        // reverse connection
+        seat.AttachToHallInternal(this);
     }
-    
-    public Seat? GetSeat(int seatNumber)
+
+    public Seat? GetSeat(int seatId)
     {
-        _seatsByNumber.TryGetValue(seatNumber, out var seat);
+        _seatsById.TryGetValue(seatId, out var seat);
         return seat;
     }
 
+    public bool RemoveSeat(int seatId)
+    {
+        if (!_seatsById.TryGetValue(seatId, out var seat))
+            return false;
+
+        _seatsById.Remove(seatId);
+
+        // reverse disconnect
+        seat.DetachFromHallInternal(this);
+
+        return true;
+    }
+
+    // ---------------------------------------------------------------------
+    // Equipment
+    // ---------------------------------------------------------------------
 
     public void AddEquipment(Equipment equipment)
     {
         if (equipment == null) throw new ArgumentNullException(nameof(equipment));
-        _equipment.Add(equipment);
+
+        if (!_equipment.Contains(equipment))
+            _equipment.Add(equipment);
     }
-    
+
+    // ---------------------------------------------------------------------
+    // Movies
+    // ---------------------------------------------------------------------
 
     public void AddMovie(Movie movie)
     {
@@ -68,7 +99,11 @@ public class Hall
         if (movie == null) throw new ArgumentNullException(nameof(movie));
         _movies.Remove(movie);
     }
-    
+
+    // ---------------------------------------------------------------------
+    // Persistence
+    // ---------------------------------------------------------------------
+
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -96,6 +131,4 @@ public class Hall
         if (halls != null)
             _all.AddRange(halls);
     }
-
-    
 }

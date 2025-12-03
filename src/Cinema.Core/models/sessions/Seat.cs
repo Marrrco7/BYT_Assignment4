@@ -9,12 +9,15 @@ namespace Cinema.Core.models.sessions
         Vip
     }
 
+
     public class Seat
     {
         // =-=-=-=- Static extent =-=-=-=-
 
         private static readonly List<Seat> _all = new();
         public static IReadOnlyList<Seat> All => _all.AsReadOnly();
+
+        private static int _counter = 0;
 
         // =-=-=-=- Fields =-=-=-=-
 
@@ -23,18 +26,23 @@ namespace Cinema.Core.models.sessions
         private bool _isAccessible;
         private decimal _ticketMultiplier;
 
-        [JsonIgnore]
-        private readonly List<Ticket> _tickets = new();
+        [JsonIgnore] private readonly List<Ticket> _tickets = new();
 
         // =-=-=-=- Properties =-=-=-=-
+
+        public int SeatId { get; private set; }
 
         public SeatType Type => _type;
         public decimal NormalPrice => _normalPrice;
         public bool IsAccessible => _isAccessible;
         public decimal TicketMultiplier => _ticketMultiplier;
 
-        [JsonIgnore]
-        public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
+        [JsonIgnore] public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
+
+
+        [JsonIgnore] private Hall? _hall;
+
+        [JsonIgnore] public Hall? Hall => _hall;
 
         // =-=-=-=- Constructors =-=-=-=-
 
@@ -44,17 +52,21 @@ namespace Cinema.Core.models.sessions
             bool isAccessible,
             decimal? ticketMultiplier = null)
         {
+            SeatId = ++_counter;
+
             var multiplier = ticketMultiplier ?? 1.8m;
             Initialize(type, normalPrice, isAccessible, multiplier, addToExtent: true);
         }
 
         [JsonConstructor]
         public Seat(
+            int seatId,
             SeatType type,
             decimal normalPrice,
             bool isAccessible,
             decimal ticketMultiplier)
         {
+            SeatId = seatId;
             Initialize(type, normalPrice, isAccessible, ticketMultiplier, addToExtent: false);
         }
 
@@ -121,6 +133,18 @@ namespace Cinema.Core.models.sessions
             _tickets.Remove(ticket);
         }
 
+
+        internal void AttachToHallInternal(Hall hall)
+        {
+            _hall = hall;
+        }
+
+        internal void DetachFromHallInternal(Hall hall)
+        {
+            if (_hall == hall)
+                _hall = null;
+        }
+
         // =-=-=-=- Business logic =-=-=-=-
 
         public decimal CalculateFinalSeatPrice()
@@ -152,8 +176,11 @@ namespace Cinema.Core.models.sessions
             var seats = JsonSerializer.Deserialize<List<Seat>>(json);
 
             _all.Clear();
-            if (seats != null)
+            if (seats != null && seats.Any())
+            {
                 _all.AddRange(seats);
+                _counter = seats.Max(s => s.SeatId);
+            }
         }
     }
 }
