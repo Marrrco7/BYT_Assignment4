@@ -1,9 +1,21 @@
+using System.Text.Json.Serialization;
+using Cinema.Core.models.operations;
+using Cinema.Core.models.sales;
+using Cinema.Core.models.sessions;
+
 namespace Cinema.Core.models.roles;
 
 public sealed class CashierRole : EmployeeRole
 {
     private string _posLogin = null!;
     private string _posPassword = null!;
+
+    // --- ассоциация CashierRole ↔ Order ---
+    [JsonIgnore]
+    private readonly List<Order> _orders = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
 
     public string POSLogin
     {
@@ -43,5 +55,47 @@ public sealed class CashierRole : EmployeeRole
     {
         POSLogin = posLogin;
         POSPassword = posPassword;
+    }
+
+    // ---------- Ассоциация: CashierRole ↔ Order ----------
+
+    public void AssignOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (_orders.Contains(order))
+            return;
+
+        _orders.Add(order);
+        order.SetCashierInternal(this); // reverse connection
+    }
+
+    public void RemoveOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (_orders.Remove(order))
+        {
+            order.SetCashierInternal(null); // reverse connection
+        }
+    }
+
+    internal void AddOrderInternal(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (!_orders.Contains(order))
+            _orders.Add(order);
+    }
+
+    internal void RemoveOrderInternal(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        _orders.Remove(order);
     }
 }

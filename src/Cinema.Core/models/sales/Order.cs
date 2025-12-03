@@ -34,9 +34,9 @@ public class Order
     private TypeOfOrder _typeOfOrder;
     private List<Ticket> _tickets = new();
 
-    // XOR
+    // XOR: либо Customer, либо CashierRole
     private Customer? _customer;
-    private Employee? _cashier;
+    private CashierRole? _cashier;
 
     // Properties
 
@@ -76,23 +76,7 @@ public class Order
 
     public Customer? Customer => _customer;
 
-    public Employee? Cashier
-    {
-        get => _cashier;
-        set
-        {
-            if (value != null)
-            {
-                bool hasCashierRole = value.Roles.Any(r => r is CashierRole);
-                if (!hasCashierRole)
-                    throw new ArgumentException(
-                        $"Employee {value.FirstName} {value.LastName} does not have CashierRole.");
-            }
-
-            _cashier = value;
-            ValidateXorRules();
-        }
-    }
+    public CashierRole? Cashier => _cashier;
 
     // Constructors
 
@@ -106,7 +90,7 @@ public class Order
         OrderStatus status,
         List<Ticket> tickets,
         Customer? customer = null,
-        Employee? cashier = null,
+        CashierRole? cashier = null,
         string? emailForBonusPoints = null)
     {
         Id = ++_counter;
@@ -120,7 +104,7 @@ public class Order
             SetCustomer(customer);
 
         if (cashier != null)
-            Cashier = cashier;
+            SetCashier(cashier);
 
         ValidateXorRules();
 
@@ -129,7 +113,7 @@ public class Order
         _all.Add(this);
     }
 
-    // Associations: Customer (0..1) – reverse connection
+    // Associations: Customer 
 
     public void SetCustomer(Customer? customer)
     {
@@ -162,6 +146,39 @@ public class Order
         ValidateXorRules();
     }
 
+    // Associations: Cashier
+
+    public void SetCashier(CashierRole? cashier)
+    {
+        if (_cashier == cashier)
+            return;
+
+        if (_cashier != null)
+        {
+            var oldCashier = _cashier;
+            _cashier = null;
+            oldCashier.RemoveOrderInternal(this);
+        }
+
+        if (cashier != null)
+        {
+            _cashier = cashier;
+            cashier.AddOrderInternal(this);
+        }
+        else
+        {
+            _cashier = null;
+        }
+
+        ValidateXorRules();
+    }
+
+    internal void SetCashierInternal(CashierRole? cashier)
+    {
+        _cashier = cashier;
+        ValidateXorRules();
+    }
+
     // Business logic
 
     public int CalculatePoints()
@@ -173,9 +190,6 @@ public class Order
     {
         if (TypeOfOrder == TypeOfOrder.Online)
         {
-            if (_customer == null && _cashier != null)
-                return;
-
             if (_customer == null)
                 throw new ArgumentException("Online order must have a customer.");
             if (_cashier != null)
@@ -204,11 +218,7 @@ public class Order
         }
         else
         {
-            var cashierRole = Cashier?
-                .Roles
-                .FirstOrDefault(r => r is CashierRole) as CashierRole;
-
-            var posLogin = cashierRole?.POSLogin ?? "None";
+            var posLogin = Cashier?.POSLogin ?? "None";
 
             Console.WriteLine("Cashier POS Login: " + posLogin);
             Console.WriteLine("Linked Customer Email: " + (EmailForBonusPoints ?? "None"));
