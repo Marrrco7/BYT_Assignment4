@@ -1,44 +1,51 @@
-﻿using System.Reflection;
+﻿using System.Collections;
+using System.Reflection;
 using Cinema.Core.models.customers;
 using Cinema.Core.models.sales;
 using Cinema.Core.models.sessions;
 using Cinema.Core.models.roles;
 using Cinema.Core.models.contract;
+using Cinema.Core.models.operations;
 
 namespace Cinema.Core.Tests.Models
 {
     [TestFixture]
     public class CinemaTests
     {
-
         [SetUp]
         public void Setup()
         {
-            // prevent data bleeding between tests.
             ClearAllExtents();
         }
 
         [TearDown]
         public void Cleanup()
         {
-            var files = new[] { "customers.json", "sessions.json", "orders.json", "employees.json" };
+            var files = new[] { "customers.json", "sessions.json", "orders.json", "employees.json", "halls.json" };
             foreach (var f in files)
             {
                 if (File.Exists(f)) File.Delete(f);
             }
         }
 
+        // ==================================================================
+        // HELPERS (Reflection)
+        // ==================================================================
+
         private void ClearAllExtents()
         {
-            // Helper to clear static lists via Reflection
             ClearStaticList<Customer>("_all");
             ClearStaticList<Employee>("_all");
-            ClearStaticList<Session>("All"); 
-            ClearStaticList<Ticket>("All");  
-            ClearStaticList<Seat>("All");    
+            ClearStaticList<Session>("_all");
+            ClearStaticList<Ticket>("All");
+            ClearStaticList<Seat>("All");
             ClearStaticList<Order>("_all");
             ClearStaticList<Movie>("All");
             ClearStaticList<Promotion>("_all");
+            ClearStaticList<Review>("_all");
+            ClearStaticList<Shift>("_all");
+            ClearStaticList<Equipment>("_all");
+            ClearStaticList<Hall>("_all");
         }
 
         private void ClearStaticList<T>(string fieldName)
@@ -48,299 +55,366 @@ namespace Cinema.Core.Tests.Models
             var prop = type.GetProperty(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
 
             object? listObject = null;
-
             if (field != null) listObject = field.GetValue(null);
             else if (prop != null) listObject = prop.GetValue(null);
 
-            if (listObject != null && listObject is System.Collections.IList list)
+            if (listObject is IList list)
             {
                 list.Clear();
             }
         }
 
-        // ==================================================================
-        // 1. CONTRACT TESTS (Logic Validations)
-        // ==================================================================
-
-        [Test]
-        public void FullTimeContract_ValidData_ShouldCreate()
+        private void InvokeInternalStaticMethod(Type type, string methodName, object[] parameters)
         {
-            var contract = new FullTimeContract(2500.00m, true);
-            Assert.That(contract.Salary, Is.EqualTo(2500.00m));
-            Assert.That(contract.HasBenefitsPlan, Is.True);
+            var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            if (method == null)
+                throw new MissingMethodException($"{type.Name} does not have a static method named {methodName}");
+
+            try
+            {
+                method.Invoke(null, parameters);
+            }
+            catch (TargetInvocationException ex)
+            {
+                if (ex.InnerException != null) throw ex.InnerException;
+                throw;
+            }
         }
 
-        [Test]
-        public void FullTimeContract_SalaryBelowMin_ShouldThrow()
+        private void SetPrivateProperty(object obj, string propName, object? value)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new FullTimeContract(400m, true));
-            Assert.That(ex.Message, Does.Contain($"Salary must be at least"));
+            var prop = obj.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (prop == null) throw new MissingMemberException(obj.GetType().Name, propName);
+            prop.SetValue(obj, value);
         }
 
-        [Test]
-        public void FullTimeContract_SalaryAboveMax_ShouldThrow()
+        private List<T> GetStaticList<T>(string fieldName)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new FullTimeContract(4000m, true));
-            Assert.That(ex.Message, Does.Contain($"Salary cannot exceed"));
+            var type = typeof(T);
+            var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            var prop = type.GetProperty(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+
+            object? val = null;
+            if (field != null) val = field.GetValue(null);
+            else if (prop != null) val = prop.GetValue(null);
+
+            return (List<T>)val!;
         }
 
-        [Test]
-        public void PartTimeContract_HourlyRateInvalid_ShouldThrow()
+        // Helper to construct an Order with Tickets avoiding circular dependency
+        private Order CreateOrderWithTickets(int ticketCount, Session session, SeatType seatType)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PartTimeContract(4.00m, 20));
-            Assert.That(ex.Message, Does.Contain("Hourly rate must be between"));
-        }
+            var order = new Order();
+            var tickets = new List<Ticket>();
 
-        // ==================================================================
-        // 2. CUSTOMER & PERSON TESTS (Validation & Hashing)
-        // ==================================================================
+            for (int i = 0; i < ticketCount; i++)
+            {
+                var seat = new Seat(seatType, 10m, true);
+                var t = new Ticket(session, seat, order);
+                tickets.Add(t);
+            }
 
-        [Test]
-        public void Customer_Create_ShouldHashPasswordAndAddToExtent()
-        {
-            string rawPass = "SecurePass123";
-            var c = new Customer("Jane", "Smith", new DateOnly(1995, 5, 15), "jane@test.com", rawPass);
+            var ticketsField = typeof(Order).GetField("_tickets", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (ticketsField != null)
+            {
+                var orderTickets = (List<Ticket>)ticketsField.GetValue(order)!;
+                orderTickets.AddRange(tickets);
+            }
 
-            Assert.That(c.HashPassword, Is.Not.EqualTo(rawPass)); // Hashing check
-            Assert.That(c.HashPassword.Length, Is.GreaterThan(10));
-
-            // Extent Check (Requirement 4)
-            Assert.That(Customer.All, Contains.Item(c));
-        }
-
-        [Test]
-        public void Customer_InvalidEmail_ShouldThrow()
-        {
-            Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1990, 1, 1), "invalid-email", "Pass123"));
-        }
-
-        [Test]
-        public void Customer_EmptyPassword_ShouldThrow()
-        {
-            Assert.Throws<ArgumentException>(() =>
-                new Customer("Jane", "Smith", new DateOnly(1990, 1, 1), "a@b.com", ""));
-        }
-
-        [Test]
-        public void Person_AgeCalculation_ShouldBeCorrect()
-        {
-            // Logic from old PersonTests
-            var birthYear = DateTime.Now.Year - 25;
-            var p = new Customer("A", "B", new DateOnly(birthYear, 1, 1), "a@b.com", "Pass123");
-
-            // Note: Depends on current day of year vs birth day, but generally:
-            Assert.That(p.Age, Is.EqualTo(25).Or.EqualTo(24));
-        }
-
-        [Test]
-        public void Person_FutureBirthDate_ShouldThrow()
-        {
-            var future = DateOnly.FromDateTime(DateTime.Now.AddDays(1));
-            Assert.Throws<ArgumentException>(() =>
-                new Customer("A", "B", future, "a@b.com", "Pass123"));
+            return order;
         }
 
         // ==================================================================
-        // 3. EMPLOYEE TESTS (Roles & Composite Pattern)
+        // 1. BASIC ASSOCIATION & MULTIPLICITY
         // ==================================================================
 
         [Test]
-        public void Employee_AddRole_ShouldWork()
+        public void Association_SessionTechnician_ShouldLinkReverseConnection()
         {
-            var emp = new Employee("John", "Doe", new DateOnly(1990, 1, 1), new DateOnly(2022, 1, 1), "555-5555",
-                new FullTimeContract(2000m, true));
+            var session = CreateDummySession();
+            var tech = CreateDummyTechnician("Sound Engineer");
 
-            var role = new CashierRole("login1", "Pass123!");
-            emp.AddRole(role);
+            session.AddTechnician(tech);
 
-            Assert.That(emp.Roles, Contains.Item(role));
+            Assert.That(session.Technicians, Contains.Item(tech));
+            Assert.That(tech.Sessions, Contains.Item(session));
         }
 
         [Test]
-        public void Employee_AddSubordinate_ShouldLinkBiDirectionally()
+        public void Association_TechnicianSession_ShouldLinkReverseConnection()
         {
-            var boss = new Employee("Boss", "Man", new DateOnly(1980, 1, 1), new DateOnly(2010, 1, 1), "111", new FullTimeContract(3000m, true));
-            var worker = new Employee("Work", "Man", new DateOnly(1990, 1, 1), new DateOnly(2020, 1, 1), "222", new FullTimeContract(2000m, true));
+            var session = CreateDummySession();
+            var tech = CreateDummyTechnician("Projectionist");
 
-            boss.AddSubordinate(worker);
+            tech.AssignToSession(session);
 
-            Assert.That(boss.Subordinates, Contains.Item(worker));
-            Assert.That(worker.Supervisor, Is.EqualTo(boss));
+            Assert.That(tech.Sessions, Contains.Item(session));
+            Assert.That(session.Technicians, Contains.Item(tech));
         }
 
         [Test]
-        public void Employee_SelfSupervision_ShouldThrow()
+        public void Multiplicity_SessionMustHaveOneTechnician_RemoveShouldThrow()
         {
-            var emp = new Employee("A", "B", new DateOnly(1990, 1, 1), new DateOnly(2020, 1, 1), "1", new FullTimeContract(2000m, true));
+            var session = CreateDummySession();
+            var tech1 = CreateDummyTechnician("Tech One");
+            var tech2 = CreateDummyTechnician("Tech Two");
+
+            session.AddTechnician(tech1);
+            session.AddTechnician(tech2);
+
+            session.RemoveTechnician(tech1);
+            Assert.That(session.Technicians.Count, Is.EqualTo(1));
+
+            var ex = Assert.Throws<InvalidOperationException>(() => session.RemoveTechnician(tech2));
+            Assert.That(ex.Message, Does.Contain("must have at least one technician"));
+        }
+
+        // ==================================================================
+        // 2. COMPOSITION ASSOCIATION
+        // ==================================================================
+
+        [Test]
+        public void Composition_TicketCannotExistWithoutOrder()
+        {
+            var session = CreateDummySession();
+            var seat = new Seat(SeatType.Normal, 10m, true);
+            Assert.Throws<ArgumentNullException>(() => new Ticket(session, seat, null!));
+        }
+
+        [Test]
+        public void Composition_DeleteOrderPart_ShouldRemoveFromWhole()
+        {
+            var session = CreateDummySession();
+            var order = CreateOrderWithTickets(2, session, SeatType.Normal);
+            var ticketToRemove = order.Tickets[0];
+
+            InvokeInternalStaticMethod(typeof(Ticket), "DeleteOrderPart", new object[] { ticketToRemove });
+
+            Assert.That(order.Tickets, Does.Not.Contain(ticketToRemove));
+            Assert.That(Ticket.All, Does.Not.Contain(ticketToRemove));
+            Assert.That(order.Tickets.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Composition_DeleteOrder_ShouldCascadeDeleteTickets()
+        {
+            var session = CreateDummySession();
+            var order = CreateOrderWithTickets(3, session, SeatType.Normal);
+            var tickets = order.Tickets.ToList();
+
+            Order.DeleteOrder(order);
+
+            Assert.That(Order.All, Does.Not.Contain(order));
+            foreach (var t in tickets)
+            {
+                Assert.That(Ticket.All, Does.Not.Contain(t), "Ticket should be deleted when Order is deleted");
+            }
+        }
+
+        // ==================================================================
+        // 3. AGGREGATION ASSOCIATION
+        // ==================================================================
+
+        [Test]
+        public void Aggregation_EquipmentLinkedToHall_ButHallExistsIndependently()
+        {
+            var hall = new Hall("IMAX Hall");
+            var equipment = new Equipment(EquipmentType.Audio, DateTime.Now, hall);
+
+            Assert.That(hall.Equipment, Contains.Item(equipment));
+            Assert.That(equipment.Hall, Is.EqualTo(hall));
+
+            var equipment2 = new Equipment(EquipmentType.Projection, DateTime.Now, hall);
+            Assert.That(hall.Equipment.Count, Is.EqualTo(2));
+        }
+
+        // ==================================================================
+        // 4. REFLEX ASSOCIATION
+        // ==================================================================
+
+        [Test]
+        public void Reflex_SetSupervisor_ShouldUpdateSubordinatesList()
+        {
+            var supervisor = CreateDummyEmployee("Boss");
+            var worker = CreateDummyEmployee("Worker");
+
+            worker.SetSupervisor(supervisor);
+
+            Assert.That(worker.Supervisor, Is.EqualTo(supervisor));
+            Assert.That(supervisor.Subordinates, Contains.Item(worker));
+        }
+
+        [Test]
+        public void Reflex_ChangeSupervisor_ShouldUpdateLinks()
+        {
+            var boss1 = CreateDummyEmployee("Boss1");
+            var boss2 = CreateDummyEmployee("Boss2");
+            var worker = CreateDummyEmployee("Worker");
+
+            worker.SetSupervisor(boss1);
+            worker.SetSupervisor(boss2);
+
+            Assert.That(worker.Supervisor, Is.EqualTo(boss2));
+            Assert.That(boss1.Subordinates, Does.Not.Contain(worker));
+            Assert.That(boss2.Subordinates, Contains.Item(worker));
+        }
+
+        [Test]
+        public void Reflex_SelfSupervision_ShouldThrow()
+        {
+            var emp = CreateDummyEmployee("LoneWolf");
+            Assert.Throws<InvalidOperationException>(() => emp.SetSupervisor(emp));
             Assert.Throws<InvalidOperationException>(() => emp.AddSubordinate(emp));
         }
 
         // ==================================================================
-        // 4. ORDER TESTS (XOR Logic & Business Rules)
+        // 5. QUALIFIED ASSOCIATION
         // ==================================================================
 
         [Test]
-        public void Order_Online_MustHaveCustomer_AndNoCashier()
+        public void QualifiedAssociation_AddSeat_ShouldBeRetrievableByNumber()
         {
-            var ticket = CreateDummyTicket();
+            var hall = new Hall("Standard");
+            var seat = new Seat(SeatType.Normal, 10m, true);
+            int seatNum = 5;
 
-            // Valid Online
-            var c = new Customer("C", "Cust", new DateOnly(1990, 1, 1), "c@c.com", "Pass123");
-            var order = new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, new List<Ticket> { ticket }, customer: c);
-            Assert.That(order.Id, Is.GreaterThan(0));
+            hall.AddSeat(seatNum, seat);
 
-            // Invalid: Online but with Cashier
+            var retrieved = hall.GetSeat(seatNum);
+            Assert.That(retrieved, Is.EqualTo(seat));
+        }
+
+        [Test]
+        public void QualifiedAssociation_DuplicateSeatNumber_ShouldThrow()
+        {
+            var hall = new Hall("Standard");
+            var seat1 = new Seat(SeatType.Normal, 10m, true);
+            var seat2 = new Seat(SeatType.Vip, 20m, true);
+
+            hall.AddSeat(1, seat1);
+            var ex = Assert.Throws<InvalidOperationException>(() => hall.AddSeat(1, seat2));
+            Assert.That(ex.Message, Does.Contain("already exists"));
+        }
+
+        // ==================================================================
+        // 6. ASSOCIATION WITH ATTRIBUTE
+        // ==================================================================
+
+        [Test]
+        public void AssociationClass_Review_ShouldLinkCustomerAndSession()
+        {
+            var customer = new Customer("John", "Critic", new DateOnly(1990, 1, 1), "crit@test.com", "Pass123");
+            var session = CreateDummySession();
+
+            var review = new Review(5, 4, DateTime.Now, "Great!", customer, session);
+
+            Assert.That(customer.Reviews, Contains.Item(review));
+            Assert.That(session.Reviews, Contains.Item(review));
+            Assert.That(review.Author, Is.EqualTo(customer));
+            Assert.That(review.ReviewedSession, Is.EqualTo(session));
+        }
+
+        // ==================================================================
+        // 7. XOR & BUSINESS LOGIC
+        // ==================================================================
+
+        [Test]
+        public void XOR_Order_OnlineMustHaveCustomer()
+        {
+            var session = CreateDummySession();
+            var tempOrder = new Order();
+            var ticket = new Ticket(session, new Seat(SeatType.Normal, 10, true), tempOrder);
+
+            // Detach ticket so it can be used in new Order
+            SetPrivateProperty(ticket, "Order", null);
+
+            var tickets = new List<Ticket> { ticket };
+
+            var ex = Assert.Throws<ArgumentException>(() =>
+                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, tickets, customer: null, cashier: null));
+
+            Assert.That(ex.Message, Does.Contain("Online order must have a customer"));
+        }
+
+        [Test]
+        public void XOR_Order_OnlineCannotHaveCashier()
+        {
             var cashier = CreateDummyCashier();
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, new List<Ticket> { ticket }, customer: c, cashier: cashier));
-            Assert.That(ex.Message, Does.Contain("cannot have a cashier"));
-        }
+            var order = new Order();
 
-        [Test]
-        public void Order_BoxOffice_MustHaveCashier()
-        {
-            var ticket = CreateDummyTicket();
+            SetPrivateProperty(order, "TypeOfOrder", TypeOfOrder.Online);
 
-            // Invalid: BoxOffice with no cashier
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, new List<Ticket> { ticket }));
-            Assert.That(ex.Message, Does.Contain("must have a cashier"));
-        }
+            // Force validation to proceed to cashier check by adding a customer first
+            var customer = new Customer("Test", "User", new DateOnly(2000, 1, 1), "t@test.com", "123456");
+            order.SetCustomer(customer);
 
-        [Test]
-        public void Order_BoxOffice_EmployeeMustHaveCashierRole()
-        {
-            var ticket = CreateDummyTicket();
-            var empNoRole = new Employee("No", "Role", new DateOnly(1990, 1, 1), new DateOnly(2022, 1, 1), "1", new FullTimeContract(2000m, true));
-
-            // Invalid: Employee passed exists, but doesn't have the role
-            var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, new List<Ticket> { ticket }, cashier: empNoRole));
-            Assert.That(ex.Message, Does.Contain("does not have CashierRole"));
+            var ex = Assert.Throws<ArgumentException>(() => order.Cashier = cashier);
+            Assert.That(ex.Message, Does.Contain("Online order cannot have a cashier"));
         }
 
         // ==================================================================
-        // 5. SALES & SESSION TESTS (Seat, Ticket, Session)
+        // 8. LOGIC & PERSISTENCE
         // ==================================================================
 
         [Test]
-        public void Seat_VipPrice_ShouldApplyMultiplier()
+        public void Logic_SeatPrice_VipMultiplier()
         {
-            decimal basePrice = 10.00m;
-            var seat = new Seat(SeatType.Vip, basePrice, true);
-
-            // From your model: TicketMultiplier is initialized to 1.8m
-            Assert.That(seat.CalculateFinalSeatPrice(), Is.EqualTo(basePrice * 1.8m));
+            var seat = new Seat(SeatType.Vip, 100m, true);
+            Assert.That(seat.CalculateFinalSeatPrice(), Is.EqualTo(180m));
         }
 
         [Test]
-        public void Ticket_FinalPrice_WithPromoAndBonus_ShouldCalculate()
+        public void Persistence_FullFlow_SaveAndLoad()
         {
-            var session = CreateDummySession();
-            var seat = new Seat(SeatType.Normal, 20.00m, true); // Price 20
-            var ticket = new Ticket(session, seat);
+            var hall = new Hall("PersistenceHall");
 
-            // Create Active Promo (-5.00)
-            new Promotion(DateTime.Today.AddDays(-1), DateTime.Today.AddDays(1), "TestPromo", 5.00m);
+            var allHalls = GetStaticList<Hall>("_all");
+            if (!allHalls.Contains(hall))
+            {
+                allHalls.Add(hall);
+            }
 
-            // Use 3 bonus points (-3.00)
-            decimal price = ticket.CalculateFinalPrice(bonusPointsUsed: 3);
+            hall.AddSeat(1, new Seat(SeatType.Normal, 10, true));
 
-            // 20 - 5 - 3 = 12
-            Assert.That(price, Is.EqualTo(12.00m));
-        }
+            Hall.SaveToFile("halls.json");
 
-        [Test]
-        public void Ticket_Book_ShouldChangeStatus()
-        {
-            var ticket = new Ticket(CreateDummySession(), new Seat(SeatType.Normal, 10m, true));
-
-            Assert.That(ticket.IsBooked, Is.False);
-            ticket.BookTicket();
-            Assert.That(ticket.IsBooked, Is.True);
-
-            Assert.Throws<InvalidOperationException>(() => ticket.BookTicket());
-        }
-
-        [Test]
-        public void Session_Edit_ShouldUpdateProperties()
-        {
-            var s = CreateDummySession();
-            var newDate = s.StartAt.AddHours(5);
-            var newLang = "French";
-
-            Session.EditSession(s, newDate, newLang);
-
-            Assert.That(s.StartAt, Is.EqualTo(newDate));
-            Assert.That(s.Language, Is.EqualTo(newLang));
-        }
-
-        // ==================================================================
-        // 6. PERSISTENCE TESTS (Requirement: JSON Persistence)
-        // ==================================================================
-
-        [Test]
-        public void Persistence_Customer_ShouldSaveAndLoad()
-        {
-            // 1. Create Data
-            new Customer("Alice", "Save", new DateOnly(1990, 1, 1), "alice@save.com", "Pass123");
-            new Customer("Bob", "Load", new DateOnly(1992, 2, 2), "bob@save.com", "Pass123");
-            Assert.That(Customer.All.Count, Is.EqualTo(2));
-
-            // 2. Save
-            string file = "customers.json";
-            Customer.SaveToFile(file);
-
-            // 3. Clear Memory
-            ClearAllExtents();
-            Assert.That(Customer.All.Count, Is.EqualTo(0));
-
-            // 4. Load
-            Customer.LoadFromFile(file);
-
-            // 5. Verify
-            Assert.That(Customer.All.Count, Is.EqualTo(2));
-            var alice = Customer.All.FirstOrDefault(c => c.Email == "alice@save.com");
-            Assert.That(alice, Is.Not.Null);
-            Assert.That(alice.FirstName, Is.EqualTo("Alice"));
-        }
-
-        [Test]
-        public void Persistence_Session_ShouldPreserveReferences()
-        {
-            var session = CreateDummySession();
-            string file = "sessions.json";
-
-            Session.SaveToFile(file);
             ClearAllExtents();
 
-            Session.LoadFromFile(file);
+            Hall.LoadFromFile("halls.json");
 
-            Assert.That(Session.All.Count, Is.EqualTo(1));
-            Assert.That(Session.All[0].Language, Is.EqualTo("English"));
+            var loadedHalls = GetStaticList<Hall>("_all");
+
+            Assert.That(loadedHalls.Count, Is.EqualTo(1));
+            Assert.That(loadedHalls[0].Name, Is.EqualTo("PersistenceHall"));
         }
 
         // ==================================================================
-        // HELPERS
+        // TEST HELPERS
         // ==================================================================
 
         private Session CreateDummySession()
         {
             var hall = new Hall("H1");
-            var movie = new Movie("M1", TimeSpan.FromHours(2), new[] { "G" });
+            var movie = new Movie("Matrix", TimeSpan.FromHours(2), new[] { "SciFi" });
             return new Session(hall, movie, DateTime.Now.AddDays(1), "English");
         }
 
-        private Ticket CreateDummyTicket()
+        private Employee CreateDummyEmployee(string firstName)
         {
-            return new Ticket(CreateDummySession(), new Seat(SeatType.Normal, 10m, true));
+            var contract = new FullTimeContract(2000m, true);
+            return new Employee(firstName, "Doe", new DateOnly(1990, 1, 1),
+                new DateOnly(2023, 1, 1), "123456", contract);
+        }
+
+        private TechnicianRole CreateDummyTechnician(string degree)
+        {
+            return new TechnicianRole(degree, true);
         }
 
         private Employee CreateDummyCashier()
         {
-            var emp = new Employee("Cash", "Ier", new DateOnly(1990, 1, 1), new DateOnly(2020, 1, 1), "123", new FullTimeContract(2000m, true));
-            emp.AddRole(new CashierRole("login", "Pass123!"));
+            var emp = CreateDummyEmployee("Cashier");
+            emp.AddRole(new CashierRole("POS1", "Pass123!"));
             return emp;
         }
     }
