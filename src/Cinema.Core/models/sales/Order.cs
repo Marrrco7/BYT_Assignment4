@@ -168,7 +168,7 @@ public class Order
     {
         if (TypeOfOrder == TypeOfOrder.Online)
         {
-            if (_customer == null && _cashier != null)
+            if (_customer != null && _cashier == null)
                 return;
 
             if (_customer == null)
