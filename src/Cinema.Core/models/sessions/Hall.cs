@@ -124,20 +124,25 @@ public class Hall
     }
     
     // Shift
-    
-    internal void AddShiftInternal(Shift shift)
+    public void AddShift(Shift shift)
     {
-        if (shift == null)
-            throw new ArgumentNullException(nameof(shift));
+        if (shift == null) throw new ArgumentNullException(nameof(shift));
 
-        if (!_shifts.Contains(shift))
-            _shifts.Add(shift);
+        // stop infinite loop
+        if (_shifts.Contains(shift)) return;
+
+        _shifts.Add(shift);
+        
+        // tell the shift to point to this hall
+        shift.SetHall(this);
     }
 
-    internal void RemoveShiftInternal(Shift shift)
+    public void RemoveShift(Shift shift)
     {
         if (shift == null)
             throw new ArgumentNullException(nameof(shift));
+        
+        if (!_shifts.Contains(shift)) return;
 
         _shifts.Remove(shift);
     }

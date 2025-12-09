@@ -25,16 +25,23 @@ public class Shift
     public DateTime EndTime
     {
         get => _endTime;
-        set
+        private set
         {
             _endTime = value;
             ValidateTimes();
         }
     }
+    private CleanerRole _cleaner;
+    public CleanerRole Cleaner { get => _cleaner; private set => _cleaner = value; }
     
-    public CleanerRole Cleaner { get; private set; }
-    public Hall Hall { get; private set; }
-    
+    private Hall _hall;
+
+    public Hall Hall
+    {
+        get => _hall;
+        private set => _hall = value;
+    }
+
     public bool IsDeleted { get; private set; }
     
     // Constructors
@@ -43,22 +50,54 @@ public class Shift
         StartTime = startTime;
         EndTime = endTime;
         Cleaner = cleaner;
-        Hall = hall;
         
         ValidateTimes();
         
         // reverse connection
         Cleaner.AddShiftInternal(this);
-        Hall.AddShiftInternal(this);
+        // SetCleaner(cleaner);
+        SetHall(hall);
         
         _all.Add(this);
     }
     
-    public override string ToString()
+    public void SetHall(Hall newHall)
     {
-        return $"[{StartTime:dd MMMM yyyy}] Cleaner worked in hall from {StartTime:HH:mm} to {EndTime:HH:mm} ({CalculateDuration().TotalMinutes:F0} min)";
+        if (newHall == null) throw new ArgumentNullException(nameof(newHall));
+
+        if (_hall == newHall) return;
+
+        // disconnect old
+        if (_hall != null)
+        {
+            _hall.RemoveShift(this);
+        }
+
+        // connect new
+        _hall = newHall;
+        _hall.AddShift(this);
     }
     
+    /*public void SetCleaner(CleanerRole newCleaner)
+    {
+        if (newCleaner == null) throw new ArgumentNullException(nameof(newCleaner));
+        
+        if (_cleaner == newCleaner) return;
+
+        // disconnect old (Assuming CleanerRole has RemoveShift)
+        if (_cleaner != null)
+        {
+            _cleaner.RemoveShift(this); 
+        }
+
+        // connect new
+        _cleaner = newCleaner;
+        
+        // propagate (Assuming CleanerRole has AddShift)
+        _cleaner.AddShift(this);
+    }*/
+    
+    // Validator
     private void ValidateTimes()
     {
         if (_endTime <= _startTime)
@@ -68,6 +107,7 @@ public class Shift
             throw new ArgumentException("Shift duration cannot exceed 4 hours.");
     }
     
+    // Serialization
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -94,6 +134,7 @@ public class Shift
         }
     }
 
+    // Business logic
     public TimeSpan CalculateDuration()
     {
         return EndTime - StartTime;
