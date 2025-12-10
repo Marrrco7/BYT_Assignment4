@@ -20,10 +20,16 @@ public class Session
     [JsonIgnore]
     private readonly List<TechnicianRole> _technicians = new();
 
+    [JsonIgnore]
+    private readonly List<Ticket> _tickets = new();
+
+    [JsonIgnore]
+    private readonly List<Promotion> _promotions = new();
+
     // Properties
 
     public DateTime StartAt { get; set; }
-    
+
     private string _language;
 
     public string Language
@@ -33,7 +39,7 @@ public class Session
         {
             if (string.IsNullOrWhiteSpace(value))
                 throw new ArgumentException("Language cannot be empty.", nameof(value));
-            
+
             _language = value;
         }
     }
@@ -51,19 +57,24 @@ public class Session
         get => _movie;
         private set => _movie = value;
     }
-    public bool IsDeleted { get; private set; } // add to diagram
+
+    public bool IsDeleted { get; private set; }
 
     [JsonIgnore]
     public IReadOnlyList<Review> Reviews => _reviews.AsReadOnly();
 
-  
     [JsonIgnore]
     public IReadOnlyList<TechnicianRole> Technicians => _technicians.AsReadOnly();
 
+    [JsonIgnore]
+    public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
+
+    [JsonIgnore]
+    public IReadOnlyList<Promotion> Promotions => _promotions.AsReadOnly();
+
     // Constructors
 
-    // btw should we have empty constructor or it would be better if we write json ignore?
-    public Session() {}
+    public Session() { }
 
     public Session(
         Hall hall,
@@ -71,37 +82,69 @@ public class Session
         DateTime startAt,
         string language)
     {
-        Hall = hall ?? throw new ArgumentNullException(nameof(hall));
-        Movie = movie ?? throw new ArgumentNullException(nameof(movie));
+        if (hall == null) throw new ArgumentNullException(nameof(hall));
+        if (movie == null) throw new ArgumentNullException(nameof(movie));
 
-        StartAt = startAt;
+        StartAt  = startAt;
         Language = language;
-        
-        SetHall(_hall);
-        SetMovie(_movie);
+
+        // Используем ассоциационные методы, чтобы сразу были reverse connections
+        SetHall(hall);
+        SetMovie(movie);
 
         _all.Add(this);
     }
 
-    // Review
+    // ------------ Associations: Reviews (Customer–Session via Review) ------------
 
-    internal void AddReviewInternal(Review review)
+    public void AddReview(Review review)
+    {
+        if (review == null)
+            throw new ArgumentNullException(nameof(review));
+
+        if (_reviews.Contains(review))
+        {
+            // если вдруг объект уже в списке, но связь на другой session – поправим
+            if (review.ReviewedSession != this)
+            {
+                review.SetReviewedSession(this);
+            }
+            return;
+        }
+
+        _reviews.Add(review);
+
+        if (review.ReviewedSession != this)
+        {
+            review.SetReviewedSession(this);
+        }
+    }
+
+    public void RemoveReview(Review review)
     {
         if (review == null)
             throw new ArgumentNullException(nameof(review));
 
         if (!_reviews.Contains(review))
-            _reviews.Add(review);
+            return;
+
+        _reviews.Remove(review);
+
+        if (review.ReviewedSession == this)
+        {
+            review.SetReviewedSession(null);
+        }
     }
 
-    // Associations
-    
+    // ------------ Associations: Hall (Session – Hall) ------------
+
     public void SetHall(Hall newHall)
     {
-        if (newHall == null) 
+        if (newHall == null)
             throw new ArgumentNullException(nameof(newHall), "Session must be assigned to a Hall.");
 
-        if (_hall == newHall) return;
+        if (_hall == newHall)
+            return;
 
         // disconnect old
         if (_hall != null && _hall.Sessions.Contains(this))
@@ -111,32 +154,38 @@ public class Session
 
         // connect new
         _hall = newHall;
-        
+
         // reverse connection (add to new hall)
         if (!_hall.Sessions.Contains(this))
         {
             _hall.AddSession(this);
         }
     }
-    
+
+    // ------------ Associations: Movie (Session – Movie) ------------
+
     public void SetMovie(Movie newMovie)
     {
-        if (newMovie == null) throw new ArgumentNullException(nameof(newMovie), "Session must specify a Movie.");
+        if (newMovie == null)
+            throw new ArgumentNullException(nameof(newMovie), "Session must specify a Movie.");
 
-        if (_movie == newMovie) return;
-        
+        if (_movie == newMovie)
+            return;
+
         if (_movie != null && _movie.Sessions.Contains(this))
         {
             _movie.RemoveSession(this);
         }
-        
+
         _movie = newMovie;
-        
+
         if (!_movie.Sessions.Contains(this))
         {
             _movie.AddSession(this);
         }
     }
+
+    // ------------ Associations: Technicians (Session – TechnicianRole) ------------
 
     public void AddTechnician(TechnicianRole technician)
     {
@@ -161,7 +210,7 @@ public class Session
 
         if (_technicians.Remove(technician))
         {
-            technician.RemoveSessionInternal(this); //  reverse connection
+            technician.RemoveSessionInternal(this); // reverse connection
         }
     }
 
@@ -182,7 +231,88 @@ public class Session
         _technicians.Remove(technician);
     }
 
-    // Session extent
+    // ------------ Associations: Tickets (Session – Ticket) ------------
+
+    public void AddTicket(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        if (_tickets.Contains(ticket))
+        {
+            if (ticket.Session != this)
+            {
+                ticket.SetSession(this);
+            }
+            return;
+        }
+
+        _tickets.Add(ticket);
+
+        if (ticket.Session != this)
+        {
+            ticket.SetSession(this);
+        }
+    }
+
+    public void RemoveTicket(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        if (!_tickets.Contains(ticket))
+            return;
+
+        _tickets.Remove(ticket);
+
+        if (ticket.Session == this)
+        {
+            ticket.SetSession(null);
+        }
+    }
+
+    // ------------ Associations: Promotions (Session – Promotion, many-to-many) ------------
+
+    public void AddPromotion(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        if (_promotions.Contains(promotion))
+        {
+            // reverse connection: если вдруг промо знает не о той сессии
+            if (!promotion.Sessions.Contains(this))
+            {
+                promotion.AddSession(this);
+            }
+            return;
+        }
+
+        _promotions.Add(promotion);
+
+        if (!promotion.Sessions.Contains(this))
+        {
+            promotion.AddSession(this);
+        }
+    }
+
+    public void RemovePromotion(Promotion promotion)
+    {
+        if (promotion == null)
+            throw new ArgumentNullException(nameof(promotion));
+
+        if (!_promotions.Contains(promotion))
+            return;
+
+        _promotions.Remove(promotion);
+
+        if (promotion.Sessions.Contains(this))
+        {
+            promotion.RemoveSession(this);
+        }
+    }
+
+    // ------------ Session extent ------------
 
     public static IReadOnlyList<Session> ListOfSessions()
     {
@@ -197,7 +327,7 @@ public class Session
         if (!_all.Contains(session))
             _all.Add(session);
     }
-    
+
     public void DeleteSession()
     {
         IsDeleted = true;
@@ -214,7 +344,7 @@ public class Session
         if (string.IsNullOrWhiteSpace(newLanguage))
             throw new ArgumentException("Language cannot be empty.", nameof(newLanguage));
 
-        session.StartAt = newStartAt;
+        session.StartAt  = newStartAt;
         session.Language = newLanguage;
     }
 
@@ -223,14 +353,14 @@ public class Session
         AddSession(this);
     }
 
-    // Business logic
+    // ------------ Business logic ------------
 
     public DateTime CalculateEndAt()
     {
         return StartAt + Movie.Duration;
     }
 
-    // Persistence
+    // ------------ Persistence ------------
 
     public static void SaveToFile(string filePath)
     {

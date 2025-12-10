@@ -1,9 +1,18 @@
+using Cinema.Core.models.sales;
+
 namespace Cinema.Core.models.roles;
 
 public sealed class CashierRole : EmployeeRole
 {
     private string _posLogin = null!;
     private string _posPassword = null!;
+
+    // --- Reverse connection with Order ---
+
+    private readonly List<Order> _orders = new();
+    public IReadOnlyList<Order> Orders => _orders.AsReadOnly();
+
+    // --- Properties ---
 
     public string POSLogin
     {
@@ -39,9 +48,50 @@ public sealed class CashierRole : EmployeeRole
         }
     }
 
+
     public CashierRole(string posLogin, string posPassword)
     {
         POSLogin = posLogin;
         POSPassword = posPassword;
+    }
+
+    // --- Association  Orders ---
+
+    public void AddOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (_orders.Contains(order))
+        {
+            if (order.Cashier != this)
+            {
+                order.SetCashier(this);
+            }
+            return;
+        }
+
+        _orders.Add(order);
+
+        if (order.Cashier != this)
+        {
+            order.SetCashier(this);
+        }
+    }
+
+    public void RemoveOrder(Order order)
+    {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
+        if (!_orders.Contains(order))
+            return;
+
+        _orders.Remove(order);
+
+        if (order.Cashier == this)
+        {
+            order.SetCashier(null);
+        }
     }
 }

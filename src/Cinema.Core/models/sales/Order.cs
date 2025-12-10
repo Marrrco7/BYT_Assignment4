@@ -21,26 +21,25 @@ public enum TypeOfOrder
 
 public class Order
 {
-    // Static extent
+    // --- Static extent ---
 
     private static readonly List<Order> _all = new();
     public static IReadOnlyList<Order> All => _all.AsReadOnly();
 
     private static int _counter = 0;
 
-    // Fields
+    // --- Fields ---
 
     private DateTime _createdAt;
     private TypeOfOrder _typeOfOrder;
-    
+
     [JsonIgnore]
     private readonly List<Ticket> _tickets = new();
 
-    // XOR
-    private Customer? _customer;
-    private Employee? _cashier;
+    // Associations
+    private Customer? _customer;      
+    private CashierRole? _cashier;    
 
-    // Properties
 
     public int Id { get; private set; }
 
@@ -69,25 +68,9 @@ public class Order
 
     public Customer? Customer => _customer;
 
-    public Employee? Cashier
-    {
-        get => _cashier;
-        set
-        {
-            if (value != null)
-            {
-                bool hasCashierRole = value.Roles.Any(r => r is CashierRole);
-                if (!hasCashierRole)
-                    throw new ArgumentException(
-                        $"Employee {value.FirstName} {value.LastName} does not have CashierRole.");
-            }
+    public CashierRole? Cashier => _cashier;
 
-            _cashier = value;
-            ValidateXorRules();
-        }
-    }
-
-    // Constructors
+    // --- Ctors ---
 
     public Order()
     {
@@ -99,7 +82,7 @@ public class Order
         OrderStatus status,
         List<Ticket> tickets,
         Customer? customer = null,
-        Employee? cashier = null,
+        CashierRole? cashier = null,
         string? emailForBonusPoints = null)
     {
         Id = ++_counter;
@@ -107,14 +90,14 @@ public class Order
         EmailForBonusPoints = emailForBonusPoints;
 
         TypeOfOrder = orderType;
-        
+
         SetTickets(tickets);
 
         if (customer != null)
             SetCustomer(customer);
 
         if (cashier != null)
-            Cashier = cashier;
+            SetCashier(cashier);
 
         ValidateXorRules();
 
@@ -122,9 +105,8 @@ public class Order
 
         _all.Add(this);
     }
-    
 
-    // Associations: Customer (0..1) – reverse connection
+    // --- Associations: Customer 
 
     public void SetCustomer(Customer? customer)
     {
@@ -135,13 +117,21 @@ public class Order
         {
             var oldCustomer = _customer;
             _customer = null;
-            oldCustomer.RemoveOrderInternal(this);
+
+            if (oldCustomer.Orders.Contains(this))
+            {
+                oldCustomer.RemoveOrder(this);
+            }
         }
 
         if (customer != null)
         {
             _customer = customer;
-            customer.AddOrderInternal(this);
+
+            if (!customer.Orders.Contains(this))
+            {
+                customer.AddOrder(this);
+            }
         }
         else
         {
@@ -151,13 +141,42 @@ public class Order
         ValidateXorRules();
     }
 
-    internal void SetCustomerInternal(Customer? customer)
+    // --- Associations: CashierRole 
+
+    public void SetCashier(CashierRole? cashier)
     {
-        _customer = customer;
+        if (_cashier == cashier)
+            return;
+
+        if (_cashier != null)
+        {
+            var oldCashier = _cashier;
+            _cashier = null;
+
+            if (oldCashier.Orders.Contains(this))
+            {
+                oldCashier.RemoveOrder(this);
+            }
+        }
+
+        if (cashier != null)
+        {
+            _cashier = cashier;
+
+            if (!cashier.Orders.Contains(this))
+            {
+                cashier.AddOrder(this);
+            }
+        }
+        else
+        {
+            _cashier = null;
+        }
+
         ValidateXorRules();
     }
 
-    // Business logic
+    // --- Business logic ---
 
     public int CalculatePoints()
     {
@@ -166,11 +185,9 @@ public class Order
 
     private void ValidateXorRules()
     {
+   
         if (TypeOfOrder == TypeOfOrder.Online)
         {
-            if (_customer != null && _cashier == null)
-                return;
-
             if (_customer == null)
                 throw new ArgumentException("Online order must have a customer.");
             if (_cashier != null)
@@ -180,6 +197,7 @@ public class Order
         {
             if (_cashier == null)
                 throw new ArgumentException("Box office order must have a cashier.");
+            
         }
     }
 
@@ -199,11 +217,7 @@ public class Order
         }
         else
         {
-            var cashierRole = Cashier?
-                .Roles
-                .FirstOrDefault(r => r is CashierRole) as CashierRole;
-
-            var posLogin = cashierRole?.POSLogin ?? "None";
+            var posLogin = Cashier?.POSLogin ?? "None";
 
             Console.WriteLine("Cashier POS Login: " + posLogin);
             Console.WriteLine("Linked Customer Email: " + (EmailForBonusPoints ?? "None"));
@@ -263,7 +277,7 @@ public class Order
         }
     }
 
-    // Persistence
+    // --- Persistence ---
 
     public static void SaveToFile(string filePath)
     {
@@ -295,21 +309,22 @@ public class Order
             _counter = orders.Max(o => o.Id);
         }
     }
-    
-    // Composition | Ticket
-    
+
+    // --- Composition  Ticket ---
+
     private void SetTickets(IEnumerable<Ticket> tickets)
     {
         var ticketList = tickets?.ToList() ?? new List<Ticket>();
-        
+
         if (ticketList.Count == 0)
             throw new ArgumentException("Order must contain at least one ticket.");
 
         foreach (var ticket in ticketList)
         {
             if (ticket.Order != null && ticket.Order != this)
-                throw new InvalidOperationException("Ticket is already part of another Order (Composition rule: Part cannot be shared).");
-            
+                throw new InvalidOperationException(
+                    "Ticket is already part of another Order (Composition rule: Part cannot be shared).");
+
             if (!_tickets.Contains(ticket))
             {
                 _tickets.Add(ticket);
@@ -317,21 +332,21 @@ public class Order
             }
         }
     }
-    
+
     internal void RemoveTicketInternal(Ticket ticket)
     {
         if (ticket == null)
             throw new ArgumentNullException(nameof(ticket));
-        
+
         _tickets.Remove(ticket);
     }
 
-    //delete method for the Whole
+    // delete method for the Whole
     public static bool DeleteOrder(Order order)
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        
+
         if (order._tickets.Any())
         {
             foreach (var ticket in order._tickets.ToList())
@@ -339,7 +354,7 @@ public class Order
                 Ticket.DeleteOrderPart(ticket);
             }
         }
-        
+
         return _all.Remove(order);
     }
 }

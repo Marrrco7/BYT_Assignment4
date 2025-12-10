@@ -16,6 +16,9 @@ public class Review
     private int _ratingOfMovie;
     private int _ratingOfHall;
 
+    private Customer? _author;
+    private Session? _reviewedSession;
+
     // Properties
 
     public DateTime Date { get; private set; }
@@ -46,11 +49,11 @@ public class Review
         }
     }
 
-    public bool IsDeleted { get; private set; }                             // add to the diagram                        
+    public bool IsDeleted { get; private set; }
 
-    public Customer Author { get; private set; }
+    public Customer? Author => _author;
 
-    public Session ReviewedSession { get; private set; }
+    public Session? ReviewedSession => _reviewedSession;
 
     // Constructor
 
@@ -62,19 +65,85 @@ public class Review
         Customer author,
         Session reviewedSession)
     {
-        RatingOfMovie   = ratingOfMovie;
-        RatingOfHall    = ratingOfHall;
-        Date            = date;
-        Comment         = comment ?? string.Empty;
+        RatingOfMovie = ratingOfMovie;
+        RatingOfHall  = ratingOfHall;
+        Date          = date;
+        Comment       = comment ?? string.Empty;
 
-        Author          = author          ?? throw new ArgumentNullException(nameof(author));
-        ReviewedSession = reviewedSession ?? throw new ArgumentNullException(nameof(reviewedSession));
+        if (author == null)
+            throw new ArgumentNullException(nameof(author));
+        if (reviewedSession == null)
+            throw new ArgumentNullException(nameof(reviewedSession));
 
-        // reverse connection
-        Author.AddReviewInternal(this);
-        ReviewedSession.AddReviewInternal(this);
+        // устанавливаем связи через методы с reverse connection
+        SetAuthor(author);
+        SetReviewedSession(reviewedSession);
 
         _all.Add(this);
+    }
+
+    // Ассоциация с Customer
+
+    public void SetAuthor(Customer? customer)
+    {
+        if (_author == customer)
+            return;
+
+        if (_author != null)
+        {
+            var oldAuthor = _author;
+
+            if (oldAuthor.Reviews.Contains(this))
+            {
+                oldAuthor.RemoveReview(this);
+            }
+        }
+
+        if (customer != null)
+        {
+            _author = customer;
+
+            if (!customer.Reviews.Contains(this))
+            {
+                customer.AddReview(this);
+            }
+        }
+        else
+        {
+            _author = null;
+        }
+    }
+
+    // Ассоциация с Session
+
+    public void SetReviewedSession(Session? session)
+    {
+        if (_reviewedSession == session)
+            return;
+
+        if (_reviewedSession != null)
+        {
+            var oldSession = _reviewedSession;
+
+            if (oldSession.Reviews.Contains(this))
+            {
+                oldSession.RemoveReview(this);
+            }
+        }
+
+        if (session != null)
+        {
+            _reviewedSession = session;
+
+            if (!session.Reviews.Contains(this))
+            {
+                session.AddReview(this);
+            }
+        }
+        else
+        {
+            _reviewedSession = null;
+        }
     }
 
     // Business logic
@@ -84,7 +153,7 @@ public class Review
         RatingOfMovie = newMovieRating;
         RatingOfHall  = newHallRating;
         Comment       = newComment ?? string.Empty;
-        Date          = DateTime.Now; 
+        Date          = DateTime.Now;
     }
 
     public void Delete()

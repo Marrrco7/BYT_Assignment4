@@ -1,9 +1,10 @@
+namespace Cinema.Core.models.customers;
+
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Cinema.Core.models.customers;
 using Cinema.Core.models.sales;
 
 public class Customer : Person
@@ -95,7 +96,7 @@ public class Customer : Person
         _hashPassword = hashPassword;
     }
 
-    // Associations: Orders
+    // Associations: Orders (reverse connection без internal)
 
     public void AddOrder(Order order)
     {
@@ -103,10 +104,20 @@ public class Customer : Person
             throw new ArgumentNullException(nameof(order));
 
         if (_orders.Contains(order))
+        {
+            if (order.Customer != this)
+            {
+                order.SetCustomer(this);
+            }
             return;
+        }
 
         _orders.Add(order);
-        order.SetCustomerInternal(this); 
+
+        if (order.Customer != this)
+        {
+            order.SetCustomer(this);
+        }
     }
 
     public void RemoveOrder(Order order)
@@ -114,41 +125,56 @@ public class Customer : Person
         if (order == null)
             throw new ArgumentNullException(nameof(order));
 
-        if (_orders.Remove(order))
+        if (!_orders.Contains(order))
+            return;
+
+        _orders.Remove(order);
+
+        if (order.Customer == this)
         {
-            order.SetCustomerInternal(null); 
+            order.SetCustomer(null);
         }
     }
 
-    internal void AddOrderInternal(Order order)
-    {
-        if (order == null)
-            throw new ArgumentNullException(nameof(order));
+    // Associations: Reviews (Customer–Session via Review, тоже без internal)
 
-        if (!_orders.Contains(order))
-            _orders.Add(order);
+    public void AddReview(Review review)
+    {
+        if (review == null)
+            throw new ArgumentNullException(nameof(review));
+
+        if (_reviews.Contains(review))
+        {
+            if (review.Author != this)
+            {
+                review.SetAuthor(this);
+            }
+            return;
+        }
+
+        _reviews.Add(review);
+
+        if (review.Author != this)
+        {
+            review.SetAuthor(this);
+        }
     }
 
-    internal void RemoveOrderInternal(Order order)
-    {
-        if (order == null)
-            throw new ArgumentNullException(nameof(order));
-
-        _orders.Remove(order);
-    }
-
-    // Associations: Reviews (Customer–Session history via Review)
-
-    internal void AddReviewInternal(Review review)
+    public void RemoveReview(Review review)
     {
         if (review == null)
             throw new ArgumentNullException(nameof(review));
 
         if (!_reviews.Contains(review))
-            _reviews.Add(review);
+            return;
+
+        _reviews.Remove(review);
+
+        if (review.Author == this)
+        {
+            review.SetAuthor(null);
+        }
     }
-
-
 
     // Business logic
 

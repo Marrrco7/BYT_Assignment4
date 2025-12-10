@@ -73,9 +73,9 @@ public sealed class Employee : Person
         EmploymentContract contract)
         : base(firstName, lastName, dateOfBirth)
     {
-        HiringDate = hiringDate;
+        HiringDate  = hiringDate;
         PhoneNumber = phoneNumber;
-        Contract = contract;
+        Contract    = contract;
 
         _all.Add(this);
     }
@@ -86,8 +86,10 @@ public sealed class Employee : Person
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        if (!_roles.Contains(role))
-            _roles.Add(role);
+        if (_roles.Contains(role))
+            return;
+
+        _roles.Add(role);
     }
 
     public void RemoveRole(EmployeeRole role)
@@ -98,7 +100,7 @@ public sealed class Employee : Person
         _roles.Remove(role);
     }
 
-    // REFLEX ASSOCIATION — Supervisor side
+    // ===================== REFLEX ASSOCIATION 
 
     public void SetSupervisor(Employee? supervisor)
     {
@@ -111,34 +113,34 @@ public sealed class Employee : Person
         if (Supervisor != null)
         {
             var oldSupervisor = Supervisor;
-            Supervisor = null;
 
-            oldSupervisor._subordinates.Remove(this);
+            if (oldSupervisor._subordinates.Contains(this))
+            {
+                oldSupervisor.RemoveSubordinate(this);
+            }
         }
 
         if (supervisor != null)
         {
             Supervisor = supervisor;
+
             if (!supervisor._subordinates.Contains(this))
-                supervisor._subordinates.Add(this);
+            {
+                supervisor.AddSubordinate(this);
+            }
+        }
+        else
+        {
+            Supervisor = null;
         }
     }
 
-    
     public void RemoveSupervisor()
     {
         SetSupervisor(null);
     }
 
-    internal void SetSupervisorInternal(Employee? supervisor)
-    {
-        if (ReferenceEquals(supervisor, this))
-            throw new InvalidOperationException("Employee cannot be their own supervisor.");
-
-        Supervisor = supervisor;
-    }
-
-    // REFLEX ASSOCIATION — Subordinates side
+    // ===================== REFLEX ASSOCIATION 
 
     public void AddSubordinate(Employee employee)
     {
@@ -149,10 +151,20 @@ public sealed class Employee : Person
             throw new InvalidOperationException("Employee cannot supervise themselves.");
 
         if (_subordinates.Contains(employee))
+        {
+            if (employee.Supervisor != this)
+            {
+                employee.SetSupervisor(this);
+            }
             return;
+        }
 
         _subordinates.Add(employee);
-        employee.SetSupervisorInternal(this); // internal reverse connection
+
+        if (employee.Supervisor != this)
+        {
+            employee.SetSupervisor(this);
+        }
     }
 
     public void RemoveSubordinate(Employee employee)
@@ -160,17 +172,21 @@ public sealed class Employee : Person
         if (employee == null)
             throw new ArgumentNullException(nameof(employee));
 
-        if (_subordinates.Remove(employee))
+        if (!_subordinates.Contains(employee))
+            return;
+
+        _subordinates.Remove(employee);
+
+        if (employee.Supervisor == this)
         {
-            if (employee.Supervisor == this)
-                employee.SetSupervisorInternal(null);
+            employee.SetSupervisor(null);
         }
     }
 
     // Contract
     public void ChangeContract(EmploymentContract newContract)
     {
-        Contract = newContract;
+        Contract = newContract ?? throw new ArgumentNullException(nameof(newContract));
     }
 
     // Persistence
