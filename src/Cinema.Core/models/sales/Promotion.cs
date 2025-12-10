@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Cinema.Core.models.sessions;
 
 namespace Cinema.Core.models.sales;
 
@@ -6,6 +8,20 @@ public class Promotion
 {
     private static readonly List<Promotion> _all = new();
     public static IReadOnlyList<Promotion> All => _all.AsReadOnly();
+
+
+    [JsonIgnore]
+    private readonly List<Ticket> _tickets = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
+
+    [JsonIgnore]
+    private readonly List<Session> _sessions = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
+
 
     private DateTime _validFrom;
 
@@ -54,6 +70,88 @@ public class Promotion
         return today >= ValidFrom.Date && today <= ValidTo.Date;
     }
 
+    // ------------  Associations: Tickets 
+
+    public void AddTicket(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        if (_tickets.Contains(ticket))
+        {
+            if (ticket.Promotion != this)
+            {
+                ticket.SetPromotion(this);
+            }
+            return;
+        }
+
+        _tickets.Add(ticket);
+
+        if (ticket.Promotion != this)
+        {
+            ticket.SetPromotion(this);
+        }
+    }
+
+    public void RemoveTicket(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+
+        if (!_tickets.Contains(ticket))
+            return;
+
+        _tickets.Remove(ticket);
+
+        if (ticket.Promotion == this)
+        {
+            ticket.SetPromotion(null);
+        }
+    }
+
+    // ------------  Associations: Sessions 
+
+    public void AddSession(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (_sessions.Contains(session))
+        {
+            if (!session.Promotions.Contains(this))
+            {
+                session.AddPromotion(this);
+            }
+            return;
+        }
+
+        _sessions.Add(session);
+
+        if (!session.Promotions.Contains(this))
+        {
+            session.AddPromotion(this);
+        }
+    }
+
+    public void RemoveSession(Session session)
+    {
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session))
+            return;
+
+        _sessions.Remove(session);
+
+        if (session.Promotions.Contains(this))
+        {
+            session.RemovePromotion(this);
+        }
+    }
+
+    // ------------ Persistence -
+
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -81,6 +179,4 @@ public class Promotion
     {
         get { return DiscountAmount; }
     }
-
-
 }
