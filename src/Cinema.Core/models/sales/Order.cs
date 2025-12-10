@@ -351,7 +351,7 @@ public class Order
         {
             foreach (var ticket in order._tickets.ToList())
             {
-                Ticket.DeleteOrderPart(ticket);
+                // Ticket.DeleteOrderPart(ticket);
             }
         }
 

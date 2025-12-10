@@ -10,7 +10,10 @@ namespace Cinema.Core.models.sessions
     
     public class Seat
     { 
-        // Fields
+        private static int _nextId = 1;
+        public int Id { get; }
+
+        // ====== Fields ======
         public static List<Seat> All { get; } = new();
         public SeatType Type { get; private set; }
         
@@ -31,33 +34,27 @@ namespace Cinema.Core.models.sessions
         public bool IsAccessible { get; private set; }
         public decimal TicketMultiplier { get; private set; } = 1.8m;
         
-        // Associations
-        
         [JsonIgnore]
         private readonly List<Ticket> _tickets = new();
         
         [JsonIgnore]
         public IReadOnlyList<Ticket> Tickets => _tickets.AsReadOnly();
 
-        // Constructor
-        public Seat(
-            SeatType type,
-            decimal normalPrice,
-            bool isAccessible,
-            decimal? ticketMultiplier = null)
+        public Seat(SeatType type, decimal normalPrice, bool isAccessible, decimal? ticketMultiplier = null)
         {
+            Id = _nextId++;         
+
             Type = type;
             NormalPrice = normalPrice;
             IsAccessible = isAccessible;
 
-            // what is it?
             if (ticketMultiplier.HasValue)
                 TicketMultiplier = ticketMultiplier.Value;
 
             All.Add(this);
         }
 
-        // Business logic 
+        // ===== Business logic =====
         public decimal CalculateFinalSeatPrice()
         {
             if (Type == SeatType.Vip)
@@ -66,8 +63,8 @@ namespace Cinema.Core.models.sessions
             return NormalPrice;
         }
         
-        // Ticket
-        internal void AddTicketInternal(Ticket ticket)
+        // ===== Ticket 
+        public void AddTicket(Ticket ticket)
         {
             if (ticket == null)
                 throw new ArgumentNullException(nameof(ticket));
@@ -79,10 +76,11 @@ namespace Cinema.Core.models.sessions
                 _tickets.Add(ticket);
         }
         
-        internal void RemoveTicketInternal(Ticket ticket)
+        public void RemoveTicket(Ticket ticket)
         {
             if (ticket == null)
                 throw new ArgumentNullException(nameof(ticket));
+
             _tickets.Remove(ticket);
         }
     }

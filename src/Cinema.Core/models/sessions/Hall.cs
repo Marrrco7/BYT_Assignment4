@@ -6,9 +6,8 @@ namespace Cinema.Core.models.sessions;
 
 public class Hall
 {
-    // Fields
-    
     private static readonly int Capacity = 150;
+
     private string _name; 
     public string Name 
     { 
@@ -21,64 +20,58 @@ public class Hall
         }
     }
     
-    private readonly Dictionary<int, Seat> _seatsByNumber = new();
+    private readonly Dictionary<int, Seat> _seatsById = new();
     
     private readonly List<Movie> _movies = new();
     
     private static readonly List<Hall> _all = new();
     private static IReadOnlyList<Hall> All => _all.AsReadOnly();
     
-    // Associations
+    // ===== Associations =====
+    [JsonIgnore] private readonly List<Shift> _shifts = new();
+    [JsonIgnore] private readonly List<Session> _sessions = new();
+    [JsonIgnore] private readonly List<Equipment> _equipment = new();
     
-    [JsonIgnore]
-    private readonly List<Shift> _shifts = new();
-    
-    [JsonIgnore]
-    private readonly List<Session> _sessions = new();
-    
-    [JsonIgnore]
     public IReadOnlyList<Shift> Shifts => _shifts.AsReadOnly();
-    
-    [JsonIgnore]
     public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
-    
-    [JsonIgnore]
-    private readonly List<Equipment> _equipment = new();
-
-    [JsonIgnore]
     public IReadOnlyList<Equipment> Equipment => _equipment.AsReadOnly();
 
-    // Constructors
-    
+    // ===== Constructor =====
     public Hall(string name)
     {
         Name = name;
+        _all.Add(this);
     }
     
-    // Business logic
-    public void AddSeat(int seatNumber, Seat seat)
+    // ===== Qualified Association: SEATS =====
+
+    public void AddSeat(Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
 
-        if (seatNumber <= 0)
-            throw new ArgumentException("Seat number must be positive.");
+        if (_seatsById.ContainsKey(seat.Id))
+            throw new InvalidOperationException(
+                $"Seat with Id {seat.Id} already exists in Hall {Name}.");
 
-        if (_seatsByNumber.ContainsKey(seatNumber))
-            throw new InvalidOperationException($"Seat {seatNumber} already exists in Hall {Name}.");
-
-        if (_seatsByNumber.Count >= Capacity)
+        if (_seatsById.Count >= Capacity)
             throw new InvalidOperationException(
                 $"Hall {Name} reached maximum capacity of {Capacity} seats.");
 
-        _seatsByNumber[seatNumber] = seat;
+        _seatsById[seat.Id] = seat;
     }
-    
-    public Seat? GetSeat(int seatNumber)
+
+    public Seat? GetSeat(int seatId)
     {
-        _seatsByNumber.TryGetValue(seatNumber, out var seat);
+        _seatsById.TryGetValue(seatId, out var seat);
         return seat;
     }
-    
+
+    public void RemoveSeat(int seatId)
+    {
+        _seatsById.Remove(seatId);
+    }
+
+    // ===== Movies =====
     public void AddMovie(Movie movie)
     {
         if (movie == null) throw new ArgumentNullException(nameof(movie));
@@ -91,7 +84,7 @@ public class Hall
         _movies.Remove(movie);
     }
     
-    // Persistence
+    // ===== Persistence =====
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -110,93 +103,76 @@ public class Hall
             return;
 
         var json = File.ReadAllText(filePath);
-        var halls = JsonSerializer.Deserialize<List<Hall>>(json, new JsonSerializerOptions
-        {
-            ReferenceHandler = ReferenceHandler.Preserve
-        });
+        var halls = JsonSerializer.Deserialize<List<Hall>>(json, 
+            new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
 
         _all.Clear();
         if (halls != null)
             _all.AddRange(halls);
     }
     
-    // Shift
+    // ===== Shift =====
     public void AddShift(Shift shift)
     {
-        if (shift == null) 
-            throw new ArgumentNullException(nameof(shift), "Shift cannot be null.");
+        if (shift == null)
+            throw new ArgumentNullException(nameof(shift));
 
-        // stop infinite loop
         if (_shifts.Contains(shift)) return;
 
         _shifts.Add(shift);
-        
-        // tell the shift to point to this hall
+
         if (shift.Hall != this)
-        {
             shift.SetHall(this);
-        }
     }
 
     public void RemoveShift(Shift shift)
     {
         if (shift == null)
             throw new ArgumentNullException(nameof(shift));
-        
-        if (!_shifts.Contains(shift)) return;
 
         _shifts.Remove(shift);
     }
     
-    // Session
+    // ===== Session =====
     public void AddSession(Session session)
     {
-        if (session == null) throw new ArgumentNullException(nameof(session));
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
 
-        // stop infinite recursion
         if (_sessions.Contains(session)) return;
-        
+
         _sessions.Add(session);
-        
-        // reverse connection: tell session to point to this hall
+
         if (session.Hall != this)
-        {
             session.SetHall(this);
-        }
     }
 
     public void RemoveSession(Session session)
     {
-        if (session == null) throw new ArgumentNullException(nameof(session));
-
-        if (!_sessions.Contains(session)) return;
+        if (session == null)
+            throw new ArgumentNullException(nameof(session));
 
         _sessions.Remove(session);
     }
     
-    // Equipment
+    // ===== Equipment =====
     public void AddEquipment(Equipment equipment)
     {
         if (equipment == null) throw new ArgumentNullException(nameof(equipment));
-        
+
         if (_equipment.Contains(equipment)) return;
 
         _equipment.Add(equipment);
-        
+
         if (equipment.Hall != this)
-        {
             equipment.SetHall(this);
-        }
     }
 
     public void RemoveEquipment(Equipment equipment)
     {
-        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+        if (equipment == null)
+            throw new ArgumentNullException(nameof(equipment));
 
-        if (_equipment.Contains(equipment))
-        {
-            _equipment.Remove(equipment);
-        }
+        _equipment.Remove(equipment);
     }
-    
 }
