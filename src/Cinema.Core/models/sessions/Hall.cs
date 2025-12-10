@@ -94,7 +94,6 @@ public class Hall
     }
     
     // Persistence
-    
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -152,19 +151,27 @@ public class Hall
     }
     
     // Session
-    internal void AddSessionInternal(Session session)
+    public void AddSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
 
-        if (!_sessions.Contains(session))
-            _sessions.Add(session);
+        // stop infinite recursion
+        if (_sessions.Contains(session)) return;
+        
+        _sessions.Add(session);
+        
+        // reverse connection: tell session to point to this hall
+        if (session.Hall != this)
+        {
+            session.SetHall(this);
+        }
     }
 
-    internal void RemoveSessionInternal(Session session)
+    public void RemoveSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session)) return;
 
         _sessions.Remove(session);
     }
