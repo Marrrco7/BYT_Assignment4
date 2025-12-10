@@ -38,9 +38,19 @@ public class Session
         }
     }
 
-    public Hall Hall { get; private set; }
+    private Hall _hall;
+    public Hall Hall
+    {
+        get => _hall;
+        private set => _hall = value;
+    }
 
-    public Movie Movie { get; private set; }
+    private Movie _movie;
+    public Movie Movie
+    {
+        get => _movie;
+        private set => _movie = value;
+    }
     public bool IsDeleted { get; private set; } // add to diagram
 
     [JsonIgnore]
@@ -67,13 +77,13 @@ public class Session
         StartAt = startAt;
         Language = language;
         
-        Hall.AddSessionInternal(this);
-        Movie.AddSessionInternal(this);
+        SetHall(_hall);
+        SetMovie(_movie);
 
         _all.Add(this);
     }
 
-    // Associations: Reviews (Customer–Session via Review)
+    // Review
 
     internal void AddReviewInternal(Review review)
     {
@@ -85,6 +95,48 @@ public class Session
     }
 
     // Associations
+    
+    public void SetHall(Hall newHall)
+    {
+        if (newHall == null) 
+            throw new ArgumentNullException(nameof(newHall), "Session must be assigned to a Hall.");
+
+        if (_hall == newHall) return;
+
+        // disconnect old
+        if (_hall != null && _hall.Sessions.Contains(this))
+        {
+            _hall.RemoveSession(this);
+        }
+
+        // connect new
+        _hall = newHall;
+        
+        // reverse connection (add to new hall)
+        if (!_hall.Sessions.Contains(this))
+        {
+            _hall.AddSession(this);
+        }
+    }
+    
+    public void SetMovie(Movie newMovie)
+    {
+        if (newMovie == null) throw new ArgumentNullException(nameof(newMovie), "Session must specify a Movie.");
+
+        if (_movie == newMovie) return;
+        
+        if (_movie != null && _movie.Sessions.Contains(this))
+        {
+            _movie.RemoveSession(this);
+        }
+        
+        _movie = newMovie;
+        
+        if (!_movie.Sessions.Contains(this))
+        {
+            _movie.AddSession(this);
+        }
+    }
 
     public void AddTechnician(TechnicianRole technician)
     {
