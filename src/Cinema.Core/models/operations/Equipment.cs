@@ -17,22 +17,17 @@ public enum EquipmentType
 public class Equipment
 {
     // Static extent
-
     private static readonly List<Equipment> _all = new();
     public static IReadOnlyList<Equipment> All => _all.AsReadOnly();
 
     // Fields
-
     private EquipmentType Type { get; set; }
     private DateTime DateOfLastCheckUp { get; set; }
-
-    private Hall _hall = null!;
 
     [JsonIgnore]
     private readonly List<TechnicianRole> _technicians = new();
 
-    // Properties
-
+    private Hall _hall;
     public Hall Hall
     {
         get => _hall;
@@ -49,19 +44,39 @@ public class Equipment
     public IReadOnlyList<TechnicianRole> Technicians => _technicians.AsReadOnly();
 
     // Constructors
-
     public Equipment(EquipmentType type, DateTime dateOfLastCheckUp, Hall hall)
     {
         Type = type;
         DateOfLastCheckUp = dateOfLastCheckUp;
         Hall = hall;
+
+        SetHall(_hall);
         
-        hall.AddEquipmentInternal(this);
         _all.Add(this);
     }
+    
+    // Hall
+    public void SetHall(Hall newHall)
+    {
+        if (newHall == null) 
+            throw new ArgumentNullException(nameof(newHall), "Equipment must belong to a Hall.");
 
-    // Associations: Equipment and TechnicianRole
+        if (_hall == newHall) return;
+        
+        if (_hall != null)
+        {
+            _hall.RemoveEquipment(this);
+        }
+        
+        _hall = newHall;
+        
+        if (!_hall.Equipment.Contains(this))
+        {
+            _hall.AddEquipment(this);
+        }
+    }
 
+    // Technician
     public void AddTechnician(TechnicianRole technician)
     {
         if (technician == null)
@@ -107,7 +122,6 @@ public class Equipment
     }
 
     // Business logic
-
     public void UpdateLastCheckUpDate(DateTime newDate)
     {
         if (newDate > DateTime.Now)
@@ -118,7 +132,6 @@ public class Equipment
     }
 
     // Persistence
-
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions

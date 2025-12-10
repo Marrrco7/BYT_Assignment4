@@ -56,7 +56,6 @@ public class Hall
     }
     
     // Business logic
-    
     public void AddSeat(int seatNumber, Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
@@ -80,7 +79,6 @@ public class Hall
         return seat;
     }
     
-
     public void AddMovie(Movie movie)
     {
         if (movie == null) throw new ArgumentNullException(nameof(movie));
@@ -94,7 +92,6 @@ public class Hall
     }
     
     // Persistence
-    
     public static void SaveToFile(string filePath)
     {
         var options = new JsonSerializerOptions
@@ -124,52 +121,82 @@ public class Hall
     }
     
     // Shift
-    
-    internal void AddShiftInternal(Shift shift)
+    public void AddShift(Shift shift)
     {
-        if (shift == null)
-            throw new ArgumentNullException(nameof(shift));
+        if (shift == null) 
+            throw new ArgumentNullException(nameof(shift), "Shift cannot be null.");
 
-        if (!_shifts.Contains(shift))
-            _shifts.Add(shift);
+        // stop infinite loop
+        if (_shifts.Contains(shift)) return;
+
+        _shifts.Add(shift);
+        
+        // tell the shift to point to this hall
+        if (shift.Hall != this)
+        {
+            shift.SetHall(this);
+        }
     }
 
-    internal void RemoveShiftInternal(Shift shift)
+    public void RemoveShift(Shift shift)
     {
         if (shift == null)
             throw new ArgumentNullException(nameof(shift));
+        
+        if (!_shifts.Contains(shift)) return;
 
         _shifts.Remove(shift);
     }
     
     // Session
-    internal void AddSessionInternal(Session session)
+    public void AddSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
 
-        if (!_sessions.Contains(session))
-            _sessions.Add(session);
+        // stop infinite recursion
+        if (_sessions.Contains(session)) return;
+        
+        _sessions.Add(session);
+        
+        // reverse connection: tell session to point to this hall
+        if (session.Hall != this)
+        {
+            session.SetHall(this);
+        }
     }
 
-    internal void RemoveSessionInternal(Session session)
+    public void RemoveSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session)) return;
 
         _sessions.Remove(session);
     }
     
     // Equipment
-    internal void AddEquipmentInternal(Equipment equipment)
+    public void AddEquipment(Equipment equipment)
     {
         if (equipment == null) throw new ArgumentNullException(nameof(equipment));
         
+        if (_equipment.Contains(equipment)) return;
+
+        _equipment.Add(equipment);
+        
         if (equipment.Hall != this)
-            throw new InvalidOperationException("Equipment must be linked to this Hall instance.");
-             
-        if (!_equipment.Contains(equipment))
-            _equipment.Add(equipment);
+        {
+            equipment.SetHall(this);
+        }
+    }
+
+    public void RemoveEquipment(Equipment equipment)
+    {
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+
+        if (_equipment.Contains(equipment))
+        {
+            _equipment.Remove(equipment);
+        }
     }
     
 }

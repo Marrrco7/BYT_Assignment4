@@ -96,19 +96,27 @@ public class Movie
 
 
     // Session
-    internal void AddSessionInternal(Session session)
+    public void AddSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
 
-        if (!_sessions.Contains(session))
-            _sessions.Add(session);
+        // stop infinite recursion
+        if (_sessions.Contains(session)) return;
+        
+        _sessions.Add(session);
+        
+        // reverse connection: tell session to point to this movie
+        if (session.Movie != this)
+        {
+            session.SetMovie(this);
+        }
     }
 
-    internal void RemoveSessionInternal(Session session)
+    public void RemoveSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
+
+        if (!_sessions.Contains(session)) return;
 
         _sessions.Remove(session);
     }
