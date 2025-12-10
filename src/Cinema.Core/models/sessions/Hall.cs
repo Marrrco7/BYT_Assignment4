@@ -56,7 +56,6 @@ public class Hall
     }
     
     // Business logic
-    
     public void AddSeat(int seatNumber, Seat seat)
     {
         ArgumentNullException.ThrowIfNull(seat);
@@ -80,7 +79,6 @@ public class Hall
         return seat;
     }
     
-
     public void AddMovie(Movie movie)
     {
         if (movie == null) throw new ArgumentNullException(nameof(movie));
@@ -177,15 +175,28 @@ public class Hall
     }
     
     // Equipment
-    internal void AddEquipmentInternal(Equipment equipment)
+    public void AddEquipment(Equipment equipment)
     {
         if (equipment == null) throw new ArgumentNullException(nameof(equipment));
         
+        if (_equipment.Contains(equipment)) return;
+
+        _equipment.Add(equipment);
+        
         if (equipment.Hall != this)
-            throw new InvalidOperationException("Equipment must be linked to this Hall instance.");
-             
-        if (!_equipment.Contains(equipment))
-            _equipment.Add(equipment);
+        {
+            equipment.SetHall(this);
+        }
+    }
+
+    public void RemoveEquipment(Equipment equipment)
+    {
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+
+        if (_equipment.Contains(equipment))
+        {
+            _equipment.Remove(equipment);
+        }
     }
     
 }
