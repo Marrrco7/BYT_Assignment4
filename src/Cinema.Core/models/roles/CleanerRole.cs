@@ -50,19 +50,30 @@ public sealed class CleanerRole : EmployeeRole
         return TimeSpan.FromMinutes(avgMinutes);
     }
     
-    internal void AddShiftInternal(Shift shift)
+    // Shift
+    public void AddShift(Shift shift)
     {
-        if (shift == null)
-            throw new ArgumentNullException(nameof(shift));
+        if (shift == null) 
+            throw new ArgumentNullException(nameof(shift), "Shift cannot be null.");
 
-        if (!_shifts.Contains(shift))
-            _shifts.Add(shift);
+        // stop infinite loop
+        if (_shifts.Contains(shift)) return;
+
+        _shifts.Add(shift);
+        
+        // tell the shift to point to this cleaner
+        if (shift.Cleaner != this)
+        {
+            shift.SetCleaner(this);
+        }
     }
     
-    internal void RemoveShiftInternal(Shift shift)
+    public void RemoveShift(Shift shift)
     {
         if (shift == null)
-            throw new ArgumentNullException(nameof(shift));
+            throw new ArgumentNullException(nameof(shift), "Shift cannot be null.");
+        
+        if (!_shifts.Contains(shift)) return;
 
         _shifts.Remove(shift);
     }

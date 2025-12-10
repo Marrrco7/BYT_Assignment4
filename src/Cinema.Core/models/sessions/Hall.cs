@@ -126,7 +126,8 @@ public class Hall
     // Shift
     public void AddShift(Shift shift)
     {
-        if (shift == null) throw new ArgumentNullException(nameof(shift));
+        if (shift == null) 
+            throw new ArgumentNullException(nameof(shift), "Shift cannot be null.");
 
         // stop infinite loop
         if (_shifts.Contains(shift)) return;
@@ -134,7 +135,10 @@ public class Hall
         _shifts.Add(shift);
         
         // tell the shift to point to this hall
-        shift.SetHall(this);
+        if (shift.Hall != this)
+        {
+            shift.SetHall(this);
+        }
     }
 
     public void RemoveShift(Shift shift)

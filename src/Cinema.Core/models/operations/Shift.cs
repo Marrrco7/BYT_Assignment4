@@ -54,8 +54,7 @@ public class Shift
         ValidateTimes();
         
         // reverse connection
-        Cleaner.AddShiftInternal(this);
-        // SetCleaner(cleaner);
+        SetCleaner(cleaner);
         SetHall(hall);
         
         _all.Add(this);
@@ -63,39 +62,49 @@ public class Shift
     
     public void SetHall(Hall newHall)
     {
-        if (newHall == null) throw new ArgumentNullException(nameof(newHall));
+        if (newHall == null) 
+            throw new ArgumentNullException(nameof(newHall), "Shift must be assigned to a Hall.");
 
         if (_hall == newHall) return;
 
         // disconnect old
-        if (_hall != null)
+        if (_hall != null && _hall.Shifts.Contains(this))
         {
             _hall.RemoveShift(this);
         }
 
         // connect new
         _hall = newHall;
-        _hall.AddShift(this);
+        
+        // reverse connection (add to new hall)
+        if (!_hall.Shifts.Contains(this))
+        {
+            _hall.AddShift(this);
+        }
     }
     
-    /*public void SetCleaner(CleanerRole newCleaner)
+    public void SetCleaner(CleanerRole newCleaner)
     {
-        if (newCleaner == null) throw new ArgumentNullException(nameof(newCleaner));
+        if (newCleaner == null) 
+            throw new ArgumentNullException(nameof(newCleaner), "Shift must be assigned to a Cleaner.");
         
         if (_cleaner == newCleaner) return;
 
         // disconnect old (Assuming CleanerRole has RemoveShift)
-        if (_cleaner != null)
+        if (_cleaner != null && _cleaner.Shifts.Contains(this))
         {
-            _cleaner.RemoveShift(this); 
+            _cleaner.RemoveShift(this);
         }
 
         // connect new
         _cleaner = newCleaner;
         
-        // propagate (Assuming CleanerRole has AddShift)
-        _cleaner.AddShift(this);
-    }*/
+        // reverse connection
+        if (!_cleaner.Shifts.Contains(this))
+        {
+            _cleaner.AddShift(this);
+        }
+    }
     
     // Validator
     private void ValidateTimes()
