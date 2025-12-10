@@ -26,11 +26,13 @@ public class Session
     [JsonIgnore]
     private readonly List<Promotion> _promotions = new();
 
+    private readonly bool _isDummy;
+
     // Properties
 
     public DateTime StartAt { get; set; }
 
-    private string _language;
+    private string _language = null!;
 
     public string Language
     {
@@ -44,14 +46,14 @@ public class Session
         }
     }
 
-    private Hall _hall;
+    private Hall _hall = null!;
     public Hall Hall
     {
         get => _hall;
         private set => _hall = value;
     }
 
-    private Movie _movie;
+    private Movie _movie = null!;
     public Movie Movie
     {
         get => _movie;
@@ -72,9 +74,18 @@ public class Session
     [JsonIgnore]
     public IReadOnlyList<Promotion> Promotions => _promotions.AsReadOnly();
 
-    // Constructors
+    [JsonIgnore]
+    public bool IsDummy => _isDummy;
+
 
     public Session() { }
+
+    private Session(bool isDummy)
+    {
+        _isDummy  = isDummy;
+        StartAt   = DateTime.MinValue;
+        _language = "DUMMY";
+    }
 
     public Session(
         Hall hall,
@@ -82,20 +93,37 @@ public class Session
         DateTime startAt,
         string language)
     {
-        if (hall == null) throw new ArgumentNullException(nameof(hall));
+        if (hall == null)  throw new ArgumentNullException(nameof(hall));
         if (movie == null) throw new ArgumentNullException(nameof(movie));
+
+        _isDummy = false;
 
         StartAt  = startAt;
         Language = language;
 
-        // Используем ассоциационные методы, чтобы сразу были reverse connections
         SetHall(hall);
         SetMovie(movie);
+
+        var dummyTech = TechnicianRole.CreateDummyForSession(this);
+        _technicians.Add(dummyTech);
 
         _all.Add(this);
     }
 
-    // ------------ Associations: Reviews (Customer–Session via Review) ------------
+    public static Session CreateDummyForTechnician(TechnicianRole technician)
+    {
+        if (technician == null)
+            throw new ArgumentNullException(nameof(technician));
+
+        var dummy = new Session(isDummy: true);
+
+        dummy.AttachTechnicianDummy(technician);
+        technician.AttachSessionDummy(dummy);
+
+        return dummy;
+    }
+
+    // ------------ Associations: Reviews 
 
     public void AddReview(Review review)
     {
@@ -104,7 +132,6 @@ public class Session
 
         if (_reviews.Contains(review))
         {
-            // если вдруг объект уже в списке, но связь на другой session – поправим
             if (review.ReviewedSession != this)
             {
                 review.SetReviewedSession(this);
@@ -136,7 +163,7 @@ public class Session
         }
     }
 
-    // ------------ Associations: Hall (Session – Hall) ------------
+    // ------------ Associations: Hall 
 
     public void SetHall(Hall newHall)
     {
@@ -146,23 +173,20 @@ public class Session
         if (_hall == newHall)
             return;
 
-        // disconnect old
         if (_hall != null && _hall.Sessions.Contains(this))
         {
             _hall.RemoveSession(this);
         }
 
-        // connect new
         _hall = newHall;
 
-        // reverse connection (add to new hall)
         if (!_hall.Sessions.Contains(this))
         {
             _hall.AddSession(this);
         }
     }
 
-    // ------------ Associations: Movie (Session – Movie) ------------
+    // ------------ Associations: Movie 
 
     public void SetMovie(Movie newMovie)
     {
@@ -185,7 +209,7 @@ public class Session
         }
     }
 
-    // ------------ Associations: Technicians (Session – TechnicianRole) ------------
+    // ------------ Associations: Technicians
 
     public void AddTechnician(TechnicianRole technician)
     {
@@ -193,10 +217,20 @@ public class Session
             throw new ArgumentNullException(nameof(technician));
 
         if (_technicians.Contains(technician))
+        {
+            if (!technician.Sessions.Contains(this))
+            {
+                technician.AssignToSession(this);
+            }
             return;
+        }
 
         _technicians.Add(technician);
-        technician.AddSessionInternal(this); // reverse connection
+
+        if (!technician.Sessions.Contains(this))
+        {
+            technician.AssignToSession(this);
+        }
     }
 
     public void RemoveTechnician(TechnicianRole technician)
@@ -204,34 +238,31 @@ public class Session
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
 
-        if (_technicians.Count <= 1)
-            throw new InvalidOperationException(
-                "Session must have at least one technician (1..* multiplicity).");
+        if (technician.IsDummy)
+            return;
 
-        if (_technicians.Remove(technician))
+        if (!_technicians.Contains(technician))
+            return;
+
+        _technicians.Remove(technician);
+
+        if (technician.Sessions.Contains(this))
         {
-            technician.RemoveSessionInternal(this); // reverse connection
+            technician.RemoveFromSession(this);
         }
     }
-
-    internal void AddTechnicianInternal(TechnicianRole technician)
+    public void AttachTechnicianDummy(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
 
         if (!_technicians.Contains(technician))
+        {
             _technicians.Add(technician);
+        }
     }
 
-    internal void RemoveTechnicianInternal(TechnicianRole technician)
-    {
-        if (technician == null)
-            throw new ArgumentNullException(nameof(technician));
-
-        _technicians.Remove(technician);
-    }
-
-    // ------------ Associations: Tickets (Session – Ticket) ------------
+    // ------------ Associations: Tickets 
 
     public void AddTicket(Ticket ticket)
     {
@@ -271,7 +302,7 @@ public class Session
         }
     }
 
-    // ------------ Associations: Promotions (Session – Promotion, many-to-many) ------------
+    // ------------ Associations: Promotions --
 
     public void AddPromotion(Promotion promotion)
     {
@@ -280,7 +311,6 @@ public class Session
 
         if (_promotions.Contains(promotion))
         {
-            // reverse connection: если вдруг промо знает не о той сессии
             if (!promotion.Sessions.Contains(this))
             {
                 promotion.AddSession(this);
@@ -312,7 +342,6 @@ public class Session
         }
     }
 
-    // ------------ Session extent ------------
 
     public static IReadOnlyList<Session> ListOfSessions()
     {
@@ -366,7 +395,7 @@ public class Session
     {
         var options = new JsonSerializerOptions
         {
-            WriteIndented = true,
+            WriteIndented    = true,
             ReferenceHandler = ReferenceHandler.Preserve
         };
 

@@ -22,7 +22,7 @@ namespace Cinema.Core.models.sessions
             All.Add(this);
 
             // reverse connections
-            Seat.AddTicketInternal(this);
+            // Seat.AddTicketInternal(this);
 
             SetSession(session ?? throw new ArgumentNullException(nameof(session)));
         }
@@ -129,36 +129,22 @@ namespace Cinema.Core.models.sessions
 
         // ------------ Composition helpers ------------
 
-        internal static void DeleteOrderPart(Ticket ticket)
-        {
-            if (ticket == null)
-                throw new ArgumentNullException(nameof(ticket));
+        // internal static void DeleteOrderPart(Ticket ticket)
+        // {
+        //     if (ticket == null)
+        //         throw new ArgumentNullException(nameof(ticket));
+        //
+        //     if (!All.Contains(ticket))
+        //         return;
+        //
+        //     ticket.Order.RemoveTicketInternal(ticket);
+        //
+        //     ticket.SetSession(null);
+        //     ticket.SetPromotion(null);
+        //
+        //     All.Remove(ticket);
+        // }
 
-            if (!All.Contains(ticket))
-                return;
-
-            ticket.Order.RemoveTicketInternal(ticket);
-
-            ticket.SetSession(null);
-            ticket.SetPromotion(null);
-
-            All.Remove(ticket);
-        }
-
-        internal static void DeleteSeatPart(Ticket ticket)
-        {
-            if (ticket == null)
-                throw new ArgumentNullException(nameof(ticket));
-
-            if (!All.Contains(ticket))
-                return;
-
-            ticket.Seat.RemoveTicketInternal(ticket);
-
-            ticket.SetSession(null);
-            ticket.SetPromotion(null);
-
-            All.Remove(ticket);
-        }
+       
     }
 }
