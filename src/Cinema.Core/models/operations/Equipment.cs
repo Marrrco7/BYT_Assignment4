@@ -35,27 +35,59 @@ public class Equipment
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(Hall), "Equipment must belong to a hall");
-
             _hall = value;
         }
     }
+    
+    // Helper to identify dummies if needed, or simply rely on the list count
+    private readonly bool _isDummy;
+    [JsonIgnore] public bool IsDummy => _isDummy;
 
     [JsonIgnore]
     public IReadOnlyList<TechnicianRole> Technicians => _technicians.AsReadOnly();
 
     // Constructors
+    private Equipment(bool isDummy)
+    {
+        _isDummy = isDummy;
+        Type = EquipmentType.Audio;
+        _hall = null!;
+    }
+
     public Equipment(EquipmentType type, DateTime dateOfLastCheckUp, Hall hall)
     {
+        _isDummy = false;
         Type = type;
         DateOfLastCheckUp = dateOfLastCheckUp;
-        Hall = hall;
-
-        SetHall(_hall);
         
+        SetHall(hall ?? throw new ArgumentNullException(nameof(hall)));
+        
+        var dummyTech = TechnicianRole.CreateDummyForEquipment(this);
+        _technicians.Add(dummyTech);
+
         _all.Add(this);
     }
     
-    // Hall
+    // factory for Technician to create a dummy Equipment
+    public static Equipment CreateDummyForTechnician(TechnicianRole tech)
+    {
+        if (tech == null) throw new ArgumentNullException(nameof(tech));
+
+        var dummy = new Equipment(isDummy: true);
+        
+        // manual Link
+        dummy.AttachTechnicianDummy(tech);
+        
+        return dummy;
+    }
+    
+    // method for linking dummies
+    public void AttachTechnicianDummy(TechnicianRole tech)
+    {
+         if (!_technicians.Contains(tech)) _technicians.Add(tech);
+    }
+
+    // Associations: Hall
     public void SetHall(Hall newHall)
     {
         if (newHall == null) 
@@ -77,50 +109,36 @@ public class Equipment
     }
 
     // Technician
+
     public void AddTechnician(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-
-        if (_technicians.Contains(technician))
-            return;
-
+        
+        if (_technicians.Contains(technician)) return;
+        
         _technicians.Add(technician);
-        technician.AddEquipmentInternal(this); //  reverse connection
+        
+        technician.AddEquipment(this); 
     }
 
     public void RemoveTechnician(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-
-        if (_technicians.Count <= 1)
+        
+        if (_technicians.Count <= 1 && !_isDummy)
             throw new InvalidOperationException(
                 "Equipment must have at least one technician responsible (1..* multiplicity).");
-
-        if (_technicians.Remove(technician))
-        {
-            technician.RemoveEquipmentInternal(this); // reverse connection
-        }
-    }
-
-    internal void AddTechnicianInternal(TechnicianRole technician)
-    {
-        if (technician == null)
-            throw new ArgumentNullException(nameof(technician));
-
+        
         if (!_technicians.Contains(technician))
-            _technicians.Add(technician);
-    }
-
-    internal void RemoveTechnicianInternal(TechnicianRole technician)
-    {
-        if (technician == null)
-            throw new ArgumentNullException(nameof(technician));
-
+            return;
+        
         _technicians.Remove(technician);
+        
+        technician.RemoveEquipment(this);
     }
-
+    
     // Business logic
     public void UpdateLastCheckUpDate(DateTime newDate)
     {
