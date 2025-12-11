@@ -11,11 +11,17 @@ public class Ticket
     public static IReadOnlyList<Ticket> All => _all.AsReadOnly();
 
     // Associations
-    public Session? Session { get; private set; }
+    private Session _session;
+    public Session Session { get => _session; private set => _session = value; }
     private Seat _seat;
     public Seat Seat { get => _seat; private set => _seat = value; }
     public Order Order { get; private set; }
-    public Promotion? Promotion { get; private set; }
+    private Promotion? _promotion;
+    public Promotion? Promotion 
+    { 
+        get => _promotion; 
+        private set => _promotion = value; 
+    }
 
     public bool IsBooked { get; private set; }
 
@@ -33,57 +39,43 @@ public class Ticket
         Order.AddTicket(this);
     }
 
-    // ------------ Associations: Session
-
-    public void SetSession(Session? session)
+    // Session
+    public void SetSession(Session newSession)
     {
-        if (Session == session)
-            return;
-
-        if (Session != null)
+        if (newSession == null) 
+            throw new ArgumentNullException(nameof(newSession), "Ticket must be assigned to a Session.");
+        
+        if (_session == newSession) return;
+        
+        if (_session != null && _session.Tickets.Contains(this))
         {
-            var oldSession = Session;
-            Session = null;
-
-            if (oldSession.Tickets.Contains(this)) oldSession.RemoveTicket(this);
+            _session.RemoveTicket(this);
         }
-
-        if (session != null)
+        
+        _session = newSession;
+        
+        if (!_session.Tickets.Contains(this))
         {
-            Session = session;
-
-            if (!session.Tickets.Contains(this)) session.AddTicket(this);
-        }
-        else
-        {
-            Session = null;
+            _session.AddTicket(this);
         }
     }
 
     // ------------ Associations: Promotion 
 
-    public void SetPromotion(Promotion? promotion)
+    public void SetPromotion(Promotion? newPromotion)
     {
-        if (Promotion == promotion)
-            return;
-
-        if (Promotion != null)
+        if (_promotion == newPromotion) return;
+        
+        if (_promotion != null && _promotion.Tickets.Contains(this))
         {
-            var oldPromotion = Promotion;
-            Promotion = null;
-
-            if (oldPromotion.Tickets.Contains(this)) oldPromotion.RemoveTicket(this);
+            _promotion.RemoveTicket(this);
         }
-
-        if (promotion != null)
+        
+        _promotion = newPromotion;
+        
+        if (_promotion != null && !_promotion.Tickets.Contains(this))
         {
-            Promotion = promotion;
-
-            if (!promotion.Tickets.Contains(this)) promotion.AddTicket(this);
-        }
-        else
-        {
-            Promotion = null;
+            _promotion.AddTicket(this);
         }
     }
 
@@ -112,7 +104,6 @@ public class Ticket
 
 
     // ------------ Business logic ------------
-
     public decimal CalculateFinalPrice(decimal bonusPointsUsed = 0)
     {
         var price = Seat.CalculateFinalSeatPrice();
