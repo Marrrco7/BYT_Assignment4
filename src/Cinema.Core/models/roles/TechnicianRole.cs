@@ -7,7 +7,6 @@ namespace Cinema.Core.models.roles;
 public sealed class TechnicianRole : EmployeeRole
 {
     // Fields
-
     private string _degree = null!;
 
     [JsonIgnore]
@@ -19,164 +18,125 @@ public sealed class TechnicianRole : EmployeeRole
     private readonly bool _isDummy;
 
     // Properties
-
     public string Degree
     {
         get => _degree;
         private set
         {
-            if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentException("Degree cannot be null, empty, or whitespace.", nameof(value));
-
-            if (value.Length < 2)
-                throw new ArgumentException("Degree name must be at least 2 characters long.", nameof(value));
-
-            if (!value.All(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c == '-'))
-                throw new ArgumentException("Degree can only contain letters, spaces, or hyphens.", nameof(value));
-
+            if (!_isDummy)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    throw new ArgumentException("Degree cannot be null, empty, or whitespace.", nameof(value));
+                if (value.Length < 2)
+                    throw new ArgumentException("Degree name must be at least 2 characters long.", nameof(value));
+            }
             _degree = value;
         }
     }
 
     public bool IsOnCall { get; }
 
-    [JsonIgnore]
-    public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
+    [JsonIgnore] public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
+    [JsonIgnore] public IReadOnlyList<Equipment> EquipmentAssigned => _equipment.AsReadOnly();
+    [JsonIgnore] public bool IsDummy => _isDummy;
 
-    [JsonIgnore]
-    public IReadOnlyList<Equipment> EquipmentAssigned => _equipment.AsReadOnly();
-
-    [JsonIgnore]
-    public bool IsDummy => _isDummy;
-
-
+    // --- Constructors ---
     private TechnicianRole(string degree, bool isOnCall, bool isDummy)
     {
         _isDummy = isDummy;
         Degree   = degree;
         IsOnCall = isOnCall;
     }
-
+    
     public TechnicianRole(string degree, bool isOnCall)
         : this(degree, isOnCall, false)
     {
         var dummySession = Session.CreateDummyForTechnician(this);
         _sessions.Add(dummySession);
+        
+        var dummyEquipment = Equipment.CreateDummyForTechnician(this);
+        _equipment.Add(dummyEquipment);
     }
 
+    // Factories
     public static TechnicianRole CreateDummyForSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
 
-        var dummyTech = new TechnicianRole("DUMMY_TECHNICIAN", false, isDummy: true);
-
+        var dummyTech = new TechnicianRole("DUMMY", false, isDummy: true);
         dummyTech.AttachSessionDummy(session);
-        session.AttachTechnicianDummy(dummyTech);
+        return dummyTech;
+    }
+    
+    public static TechnicianRole CreateDummyForEquipment(Equipment equipment)
+    {
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
 
+        var dummyTech = new TechnicianRole("DUMMY", false, isDummy: true);
+        dummyTech.AttachEquipmentDummy(equipment);
         return dummyTech;
     }
 
-    // -------- Ассоциация TechnicianRole 
-
-    public void AssignToSession(Session session)
+    // Session
+    public void AddSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
-
-        if (session.IsDummy)
-            throw new InvalidOperationException("Cannot assign technician to a dummy session directly.");
-
-        if (_sessions.Contains(session))
-        {
-            if (!session.Technicians.Contains(this))
-            {
-                session.AddTechnician(this);
-            }
-            return;
-        }
+        if (session == null) throw new ArgumentNullException(nameof(session));
+        
+        if (_sessions.Contains(session)) return;
 
         _sessions.Add(session);
-
-        if (!session.Technicians.Contains(this))
-        {
-            session.AddTechnician(this);
-        }
+        
+        session.AddTechnician(this);
     }
 
-    public void RemoveFromSession(Session session)
+    public void RemoveSession(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
+        if (session == null) throw new ArgumentNullException(nameof(session));
+        
+        if (_sessions.Count <= 1 && !_isDummy)
+             throw new InvalidOperationException("Technician must have at least one session.");
 
-        if (session.IsDummy)
-            return;
-
-        if (!_sessions.Contains(session))
-            return;
+        if (!_sessions.Contains(session)) return;
 
         _sessions.Remove(session);
-
-        if (session.Technicians.Contains(this))
-        {
-            session.RemoveTechnician(this);
-        }
+        
+        session.RemoveTechnician(this);
     }
-
+    
     public void AttachSessionDummy(Session session)
     {
-        if (session == null)
-            throw new ArgumentNullException(nameof(session));
-
-        if (!_sessions.Contains(session))
-        {
-            _sessions.Add(session);
-        }
+        if (!_sessions.Contains(session)) _sessions.Add(session);
     }
 
-    // -------- Ассоциация  Equipment 
-
-    public void AssignToEquipment(Equipment equipment)
+    // Equipment
+    public void AddEquipment(Equipment equipment)
     {
-        if (equipment == null)
-            throw new ArgumentNullException(nameof(equipment));
-
-        if (_equipment.Contains(equipment))
-            return;
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+        
+        if (_equipment.Contains(equipment)) return;
 
         _equipment.Add(equipment);
-        equipment.AddTechnicianInternal(this); // reverse connection
+        
+        equipment.AddTechnician(this); 
     }
 
-    public void RemoveFromEquipment(Equipment equipment)
+    public void RemoveEquipment(Equipment equipment)
     {
-        if (equipment == null)
-            throw new ArgumentNullException(nameof(equipment));
+        if (equipment == null) throw new ArgumentNullException(nameof(equipment));
 
-        if (_equipment.Count <= 1)
-            throw new InvalidOperationException(
-                "Technician must be assigned to at least one equipment (1..* multiplicity).");
+        if (_equipment.Count <= 1 && !_isDummy)
+            throw new InvalidOperationException("Technician must be assigned to at least one equipment.");
 
-        if (_equipment.Remove(equipment))
+        if (_equipment.Contains(equipment))
         {
-            equipment.RemoveTechnicianInternal(this); // reverse connection
+            _equipment.Remove(equipment);
+            
+            equipment.RemoveTechnician(this);
         }
     }
 
-    public void AddEquipmentInternal(Equipment equipment)
+    public void AttachEquipmentDummy(Equipment equipment)
     {
-        if (equipment == null)
-            throw new ArgumentNullException(nameof(equipment));
-
-        if (!_equipment.Contains(equipment))
-            _equipment.Add(equipment);
-    }
-
-    public void RemoveEquipmentInternal(Equipment equipment)
-    {
-        if (equipment == null)
-            throw new ArgumentNullException(nameof(equipment));
-
-        _equipment.Remove(equipment);
+        if (!_equipment.Contains(equipment)) _equipment.Add(equipment);
     }
 }

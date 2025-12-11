@@ -118,7 +118,6 @@ public class Session
         var dummy = new Session(isDummy: true);
 
         dummy.AttachTechnicianDummy(technician);
-        technician.AttachSessionDummy(dummy);
 
         return dummy;
     }
@@ -209,48 +208,36 @@ public class Session
         }
     }
 
-    // ------------ Associations: Technicians
-
+    // Technicians
+    
     public void AddTechnician(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-
-        if (_technicians.Contains(technician))
-        {
-            if (!technician.Sessions.Contains(this))
-            {
-                technician.AssignToSession(this);
-            }
-            return;
-        }
-
+        
+        if (_technicians.Contains(technician)) return;
+        
         _technicians.Add(technician);
-
-        if (!technician.Sessions.Contains(this))
-        {
-            technician.AssignToSession(this);
-        }
+        
+        technician.AddSession(this);
     }
 
     public void RemoveTechnician(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-
-        if (technician.IsDummy)
-            return;
-
+        
+        if (_technicians.Count <= 1 && !_isDummy)
+            throw new InvalidOperationException("Session must have at least one technician.");
+        
         if (!_technicians.Contains(technician))
             return;
-
+        
         _technicians.Remove(technician);
-
-        if (technician.Sessions.Contains(this))
-        {
-            technician.RemoveFromSession(this);
-        }
+        
+        technician.RemoveSession(this);
     }
+    
     public void AttachTechnicianDummy(TechnicianRole technician)
     {
         if (technician == null)
@@ -262,7 +249,7 @@ public class Session
         }
     }
 
-    // ------------ Associations: Tickets 
+    // Tickets 
 
     public void AddTicket(Ticket ticket)
     {

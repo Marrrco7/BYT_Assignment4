@@ -80,7 +80,6 @@ public class Order
         DateTime createdAt,
         TypeOfOrder orderType,
         OrderStatus status,
-        List<Ticket> tickets,
         Customer? customer = null,
         CashierRole? cashier = null,
         string? emailForBonusPoints = null)
@@ -90,8 +89,6 @@ public class Order
         EmailForBonusPoints = emailForBonusPoints;
 
         TypeOfOrder = orderType;
-
-        SetTickets(tickets);
 
         if (customer != null)
             SetCustomer(customer);
@@ -311,32 +308,31 @@ public class Order
     }
 
     // --- Composition  Ticket ---
-
-    private void SetTickets(IEnumerable<Ticket> tickets)
-    {
-        var ticketList = tickets?.ToList() ?? new List<Ticket>();
-
-        if (ticketList.Count == 0)
-            throw new ArgumentException("Order must contain at least one ticket.");
-
-        foreach (var ticket in ticketList)
-        {
-            if (ticket.Order != null && ticket.Order != this)
-                throw new InvalidOperationException(
-                    "Ticket is already part of another Order (Composition rule: Part cannot be shared).");
-
-            if (!_tickets.Contains(ticket))
-            {
-                _tickets.Add(ticket);
-                ticket.Order = this;
-            }
-        }
-    }
-
-    internal void RemoveTicketInternal(Ticket ticket)
+    public void AddTicket(Ticket ticket)
     {
         if (ticket == null)
             throw new ArgumentNullException(nameof(ticket));
+        
+        if (ticket.Order != this)
+        {
+            throw new InvalidOperationException("Composition Error: Ticket does not belong to this Order.");
+        }
+
+        if (!_tickets.Contains(ticket))
+        {
+            _tickets.Add(ticket);
+        }
+    }
+
+    public void RemoveTicket(Ticket ticket)
+    {
+        if (ticket == null)
+            throw new ArgumentNullException(nameof(ticket));
+        
+        if (ticket.Order != this)
+        {
+            throw new InvalidOperationException("Composition Error: Cannot remove a ticket that belongs to a different order.");
+        }
 
         _tickets.Remove(ticket);
     }
@@ -346,14 +342,18 @@ public class Order
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-
-        if (order._tickets.Any())
+        
+        var ticketsToDelete = order._tickets.ToList();
+        
+        foreach (var ticket in ticketsToDelete)
         {
-            foreach (var ticket in order._tickets.ToList())
-            {
-                // Ticket.DeleteOrderPart(ticket);
-            }
+            ticket.DeletePart(); 
         }
+        
+        order._tickets.Clear();
+        
+        order.SetCustomer(null);
+        order.SetCashier(null);
 
         return _all.Remove(order);
     }
