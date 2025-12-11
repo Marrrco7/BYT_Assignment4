@@ -1,16 +1,20 @@
+using System.Text.Json;
+using Cinema.Core.models.operations;
 using Cinema.Core.models.sales;
 
 namespace Cinema.Core.models.sessions;
 
 public class Ticket
 {
-    public static List<Ticket> All { get; } = new();
+    // Extent
+    private static readonly List<Ticket> _all = new();
+    public static IReadOnlyList<Ticket> All => _all.AsReadOnly();
 
     // Associations
     public Session? Session { get; private set; }
     private Seat _seat;
     public Seat Seat { get => _seat; private set => _seat = value; }
-    public Order Order { get; internal set; }
+    public Order Order { get; private set; }
     public Promotion? Promotion { get; private set; }
 
     public bool IsBooked { get; private set; }
@@ -20,12 +24,13 @@ public class Ticket
         Seat = seat ?? throw new ArgumentNullException(nameof(seat));
         Order = order ?? throw new ArgumentNullException(nameof(order));
 
-        All.Add(this);
-
-        // reverse connections
-        // Seat.AddTicketInternal(this);
+        _all.Add(this);
 
         SetSession(session ?? throw new ArgumentNullException(nameof(session)));
+        
+        SetSeat(seat);
+        
+        Order.AddTicket(this);
     }
 
     // ------------ Associations: Session
@@ -131,21 +136,49 @@ public class Ticket
         IsBooked = true;
     }
 
-    // ------------ Composition helpers ------------
+    // Composition
+    public void DeletePart()
+    {
+        _all.Remove(this);
+        
+        if (Order != null)
+        {
+            Order.RemoveTicket(this);
+        }
+    
+        SetSession(null);
+        SetPromotion(null);
+    
+        if (_seat != null && _seat.Tickets.Contains(this))
+        {
+            _seat.RemoveTicket(this);
+        }
+    }
+    
+    // Persistence
+    public static void SaveToFile(string filePath)
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
 
-    // internal static void DeleteOrderPart(Ticket ticket)
-    // {
-    //     if (ticket == null)
-    //         throw new ArgumentNullException(nameof(ticket));
-    //
-    //     if (!All.Contains(ticket))
-    //         return;
-    //
-    //     ticket.Order.RemoveTicketInternal(ticket);
-    //
-    //     ticket.SetSession(null);
-    //     ticket.SetPromotion(null);
-    //
-    //     All.Remove(ticket);
-    // }
+        var json = JsonSerializer.Serialize(All, options);
+        File.WriteAllText(filePath, json);
+    }
+
+    public static void LoadFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return;
+
+        var json = File.ReadAllText(filePath);
+        var tickets = JsonSerializer.Deserialize<List<Ticket>>(json);
+
+        _all.Clear();
+        if (tickets != null)
+        {
+            _all.AddRange(tickets);
+        }
+    }
 }
