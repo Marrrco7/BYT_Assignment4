@@ -82,8 +82,8 @@ public class Session
 
     private Session(bool isDummy)
     {
-        _isDummy  = isDummy;
-        StartAt   = DateTime.MinValue;
+        _isDummy = isDummy;
+        StartAt = DateTime.MinValue;
         _language = "DUMMY";
     }
 
@@ -93,12 +93,12 @@ public class Session
         DateTime startAt,
         string language)
     {
-        if (hall == null)  throw new ArgumentNullException(nameof(hall));
+        if (hall == null) throw new ArgumentNullException(nameof(hall));
         if (movie == null) throw new ArgumentNullException(nameof(movie));
 
         _isDummy = false;
 
-        StartAt  = startAt;
+        StartAt = startAt;
         Language = language;
 
         SetHall(hall);
@@ -209,16 +209,16 @@ public class Session
     }
 
     // Technicians
-    
+
     public void AddTechnician(TechnicianRole technician)
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-        
+
         if (_technicians.Contains(technician)) return;
-        
+
         _technicians.Add(technician);
-        
+
         technician.AddSession(this);
     }
 
@@ -226,18 +226,18 @@ public class Session
     {
         if (technician == null)
             throw new ArgumentNullException(nameof(technician));
-        
-        if (_technicians.Count <= 1 && !_isDummy)
-            throw new InvalidOperationException("Session must have at least one technician.");
-        
+
         if (!_technicians.Contains(technician))
             return;
-        
+
+        if (_technicians.Count <= 1 && !_isDummy)
+            throw new InvalidOperationException("Session must have at least one technician.");
+
         _technicians.Remove(technician);
-        
+
         technician.RemoveSession(this);
     }
-    
+
     public void AttachTechnicianDummy(TechnicianRole technician)
     {
         if (technician == null)
@@ -360,7 +360,7 @@ public class Session
         if (string.IsNullOrWhiteSpace(newLanguage))
             throw new ArgumentException("Language cannot be empty.", nameof(newLanguage));
 
-        session.StartAt  = newStartAt;
+        session.StartAt = newStartAt;
         session.Language = newLanguage;
     }
 
@@ -382,7 +382,7 @@ public class Session
     {
         var options = new JsonSerializerOptions
         {
-            WriteIndented    = true,
+            WriteIndented = true,
             ReferenceHandler = ReferenceHandler.Preserve
         };
 

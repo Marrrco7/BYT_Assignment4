@@ -37,8 +37,8 @@ public class Order
     private readonly List<Ticket> _tickets = new();
 
     // Associations
-    private Customer? _customer;      
-    private CashierRole? _cashier;    
+    private Customer? _customer;
+    private CashierRole? _cashier;
 
 
     public int Id { get; private set; }
@@ -182,7 +182,7 @@ public class Order
 
     private void ValidateXorRules()
     {
-   
+
         if (TypeOfOrder == TypeOfOrder.Online)
         {
             if (_customer == null)
@@ -194,7 +194,7 @@ public class Order
         {
             if (_cashier == null)
                 throw new ArgumentException("Box office order must have a cashier.");
-            
+
         }
     }
 
@@ -312,7 +312,7 @@ public class Order
     {
         if (ticket == null)
             throw new ArgumentNullException(nameof(ticket));
-        
+
         if (ticket.Order != this)
         {
             throw new InvalidOperationException("Composition Error: Ticket does not belong to this Order.");
@@ -328,7 +328,7 @@ public class Order
     {
         if (ticket == null)
             throw new ArgumentNullException(nameof(ticket));
-        
+
         if (ticket.Order != this)
         {
             throw new InvalidOperationException("Composition Error: Cannot remove a ticket that belongs to a different order.");
@@ -342,18 +342,35 @@ public class Order
     {
         if (order == null)
             throw new ArgumentNullException(nameof(order));
-        
+
         var ticketsToDelete = order._tickets.ToList();
-        
+
         foreach (var ticket in ticketsToDelete)
         {
-            ticket.DeletePart(); 
+            ticket.DeletePart();
         }
-        
+
         order._tickets.Clear();
-        
-        order.SetCustomer(null);
-        order.SetCashier(null);
+
+        if (order._customer != null)
+        {
+            var oldCustomer = order._customer;
+            order._customer = null;
+            if (oldCustomer.Orders.Contains(order))
+            {
+                oldCustomer.RemoveOrder(order);
+            }
+        }
+
+        if (order._cashier != null)
+        {
+            var oldCashier = order._cashier;
+            order._cashier = null;
+            if (oldCashier.Orders.Contains(order))
+            {
+                oldCashier.RemoveOrder(order);
+            }
+        }
 
         return _all.Remove(order);
     }
