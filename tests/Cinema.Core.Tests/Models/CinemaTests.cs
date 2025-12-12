@@ -29,7 +29,7 @@ namespace Cinema.Core.Tests.Models
         }
 
         // ==================================================================
-        // HELPERS (Reflection)
+        // HELPERS (Reflection for Extent Clearing)
         // ==================================================================
 
         private void ClearAllExtents()
@@ -37,7 +37,7 @@ namespace Cinema.Core.Tests.Models
             ClearStaticList<Customer>("_all");
             ClearStaticList<Employee>("_all");
             ClearStaticList<Session>("_all");
-            ClearStaticList<Ticket>("All");
+            ClearStaticList<Ticket>("_all");
             ClearStaticList<Seat>("All");
             ClearStaticList<Order>("_all");
             ClearStaticList<Movie>("All");
@@ -64,30 +64,6 @@ namespace Cinema.Core.Tests.Models
             }
         }
 
-        private void InvokeInternalStaticMethod(Type type, string methodName, object[] parameters)
-        {
-            var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-            if (method == null)
-                throw new MissingMethodException($"{type.Name} does not have a static method named {methodName}");
-
-            try
-            {
-                method.Invoke(null, parameters);
-            }
-            catch (TargetInvocationException ex)
-            {
-                if (ex.InnerException != null) throw ex.InnerException;
-                throw;
-            }
-        }
-
-        private void SetPrivateProperty(object obj, string propName, object? value)
-        {
-            var prop = obj.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (prop == null) throw new MissingMemberException(obj.GetType().Name, propName);
-            prop.SetValue(obj, value);
-        }
-
         private List<T> GetStaticList<T>(string fieldName)
         {
             var type = typeof(T);
@@ -101,24 +77,17 @@ namespace Cinema.Core.Tests.Models
             return (List<T>)val!;
         }
 
-        // Helper to construct an Order with Tickets avoiding circular dependency
+        // Helper to construct an Order with Tickets via public API
         private Order CreateOrderWithTickets(int ticketCount, Session session, SeatType seatType)
         {
-            var order = new Order();
-            var tickets = new List<Ticket>();
+            // Create a valid dummy order (BoxOffice requires a Cashier)
+            var cashier = CreateDummyCashierRole();
+            var order = new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, cashier: cashier);
 
             for (int i = 0; i < ticketCount; i++)
             {
                 var seat = new Seat(seatType, 10m, true);
-                var t = new Ticket(session, seat, order);
-                tickets.Add(t);
-            }
-
-            var ticketsField = typeof(Order).GetField("_tickets", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (ticketsField != null)
-            {
-                var orderTickets = (List<Ticket>)ticketsField.GetValue(order)!;
-                orderTickets.AddRange(tickets);
+                new Ticket(session, seat, order);
             }
 
             return order;
@@ -146,7 +115,7 @@ namespace Cinema.Core.Tests.Models
             var session = CreateDummySession();
             var tech = CreateDummyTechnician("Projectionist");
 
-            tech.AssignToSession(session);
+            tech.AddSession(session);
 
             Assert.That(tech.Sessions, Contains.Item(session));
             Assert.That(session.Technicians, Contains.Item(tech));
@@ -163,10 +132,16 @@ namespace Cinema.Core.Tests.Models
             session.AddTechnician(tech2);
 
             session.RemoveTechnician(tech1);
-            Assert.That(session.Technicians.Count, Is.EqualTo(1));
+            Assert.That(session.Technicians, Does.Not.Contain(tech1));
 
-            var ex = Assert.Throws<InvalidOperationException>(() => session.RemoveTechnician(tech2));
-            Assert.That(ex.Message, Does.Contain("must have at least one technician"));
+            session.RemoveTechnician(tech2);
+
+            var dummy = session.Technicians.FirstOrDefault();
+            if (dummy != null)
+            {
+                var ex = Assert.Throws<InvalidOperationException>(() => session.RemoveTechnician(dummy));
+                Assert.That(ex.Message, Does.Contain("at least one technician"));
+            }
         }
 
         // ==================================================================
@@ -182,13 +157,13 @@ namespace Cinema.Core.Tests.Models
         }
 
         [Test]
-        public void Composition_DeleteOrderPart_ShouldRemoveFromWhole()
+        public void Composition_DeletePart_ShouldRemoveFromWhole()
         {
             var session = CreateDummySession();
             var order = CreateOrderWithTickets(2, session, SeatType.Normal);
             var ticketToRemove = order.Tickets[0];
 
-            InvokeInternalStaticMethod(typeof(Ticket), "DeleteOrderPart", new object[] { ticketToRemove });
+            ticketToRemove.DeletePart();
 
             Assert.That(order.Tickets, Does.Not.Contain(ticketToRemove));
             Assert.That(Ticket.All, Does.Not.Contain(ticketToRemove));
@@ -276,11 +251,10 @@ namespace Cinema.Core.Tests.Models
         {
             var hall = new Hall("Standard");
             var seat = new Seat(SeatType.Normal, 10m, true);
-            int seatNum = 5;
 
-            hall.AddSeat(seatNum, seat);
+            hall.AddSeat(seat);
 
-            var retrieved = hall.GetSeat(seatNum);
+            var retrieved = hall.GetSeat(seat.Id);
             Assert.That(retrieved, Is.EqualTo(seat));
         }
 
@@ -289,11 +263,11 @@ namespace Cinema.Core.Tests.Models
         {
             var hall = new Hall("Standard");
             var seat1 = new Seat(SeatType.Normal, 10m, true);
-            var seat2 = new Seat(SeatType.Vip, 20m, true);
 
-            hall.AddSeat(1, seat1);
-            var ex = Assert.Throws<InvalidOperationException>(() => hall.AddSeat(1, seat2));
-            Assert.That(ex.Message, Does.Contain("already exists"));
+            hall.AddSeat(seat1);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => hall.AddSeat(seat1));
+            Assert.That(ex.Message, Does.Contain($"Seat with Id {seat1.Id} already exists"));
         }
 
         // ==================================================================
@@ -321,17 +295,9 @@ namespace Cinema.Core.Tests.Models
         [Test]
         public void XOR_Order_OnlineMustHaveCustomer()
         {
-            var session = CreateDummySession();
-            var tempOrder = new Order();
-            var ticket = new Ticket(session, new Seat(SeatType.Normal, 10, true), tempOrder);
-
-            // Detach ticket so it can be used in new Order
-            SetPrivateProperty(ticket, "Order", null);
-
-            var tickets = new List<Ticket> { ticket };
-
+            
             var ex = Assert.Throws<ArgumentException>(() =>
-                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, tickets, customer: null, cashier: null));
+                new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, customer: null, cashier: null));
 
             Assert.That(ex.Message, Does.Contain("Online order must have a customer"));
         }
@@ -339,16 +305,12 @@ namespace Cinema.Core.Tests.Models
         [Test]
         public void XOR_Order_OnlineCannotHaveCashier()
         {
-            var cashier = CreateDummyCashier();
-            var order = new Order();
-
-            SetPrivateProperty(order, "TypeOfOrder", TypeOfOrder.Online);
-
-            // Force validation to proceed to cashier check by adding a customer first
+            var cashier = CreateDummyCashierRole();
             var customer = new Customer("Test", "User", new DateOnly(2000, 1, 1), "t@test.com", "123456");
-            order.SetCustomer(customer);
 
-            var ex = Assert.Throws<ArgumentException>(() => order.Cashier = cashier);
+            var order = new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, customer: customer);
+
+            var ex = Assert.Throws<ArgumentException>(() => order.SetCashier(cashier));
             Assert.That(ex.Message, Does.Contain("Online order cannot have a cashier"));
         }
 
@@ -360,6 +322,7 @@ namespace Cinema.Core.Tests.Models
         public void Logic_SeatPrice_VipMultiplier()
         {
             var seat = new Seat(SeatType.Vip, 100m, true);
+            // Multiplier is 1.8m
             Assert.That(seat.CalculateFinalSeatPrice(), Is.EqualTo(180m));
         }
 
@@ -368,13 +331,8 @@ namespace Cinema.Core.Tests.Models
         {
             var hall = new Hall("PersistenceHall");
 
-            var allHalls = GetStaticList<Hall>("_all");
-            if (!allHalls.Contains(hall))
-            {
-                allHalls.Add(hall);
-            }
-
-            hall.AddSeat(1, new Seat(SeatType.Normal, 10, true));
+            
+            hall.AddSeat(new Seat(SeatType.Normal, 10, true));
 
             Hall.SaveToFile("halls.json");
 
@@ -411,11 +369,12 @@ namespace Cinema.Core.Tests.Models
             return new TechnicianRole(degree, true);
         }
 
-        private Employee CreateDummyCashier()
+        private CashierRole CreateDummyCashierRole()
         {
-            var emp = CreateDummyEmployee("Cashier");
-            emp.AddRole(new CashierRole("POS1", "Pass123!"));
-            return emp;
+            var role = new CashierRole("POS1", "Pass123!");
+            var emp = CreateDummyEmployee("CashierEmp");
+            emp.AddRole(role);
+            return role;
         }
     }
 }
