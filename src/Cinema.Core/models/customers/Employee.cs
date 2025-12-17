@@ -49,11 +49,16 @@ public sealed class Employee : Person
     }
 
     // Employee roles
-    private readonly List<EmployeeRole> _roles = new();
-    public IReadOnlyList<EmployeeRole> Roles => _roles.AsReadOnly();
+    private TechnicianRole? _technicianRole;
+    private CleanerRole? _cleanerRole;
+    private CashierRole? _cashierRole;
 
+    public TechnicianRole? TechnicianRole => _technicianRole;
+    public CleanerRole? CleanerRole => _cleanerRole;
+    public CashierRole? CashierRole => _cashierRole;
+    
+    
     // REFLEX ASSOCIATION
-
     [JsonIgnore]
     public Employee? Supervisor { get; private set; }
 
@@ -80,27 +85,106 @@ public sealed class Employee : Person
         _all.Add(this);
     }
 
-    // Roles
-    public void AddRole(EmployeeRole role)
+    // ROLES
+    
+    // Technician Composition
+    public void AddTechnicianRole(TechnicianRole role)
     {
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        if (_roles.Contains(role))
-            return;
+        if (_technicianRole != null)
+            throw new InvalidOperationException("Employee already has Technician role.");
 
-        _roles.Add(role);
+        if (role.Employee != this)
+            throw new InvalidOperationException("Composition error: role belongs to another employee.");
+
+        _technicianRole = role;
     }
+    
+    public void RemoveTechnicianRole(TechnicianRole role)
+    {
+        if (_technicianRole != role)
+            throw new InvalidOperationException("Composition error.");
 
-    public void RemoveRole(EmployeeRole role)
+        _technicianRole = null;
+    }
+    
+    // Cleaner Composition
+    public void AddCleanerRole(CleanerRole role)
     {
         if (role == null)
             throw new ArgumentNullException(nameof(role));
 
-        _roles.Remove(role);
+        if (_cleanerRole != null)
+            throw new InvalidOperationException("Employee already has Cleaner role.");
+
+        if (role.Employee != this)
+            throw new InvalidOperationException("Composition error: role belongs to another employee.");
+
+        _cleanerRole = role;
     }
 
-    // ===================== REFLEX ASSOCIATION 
+    public void RemoveCleanerRole(CleanerRole role)
+    {
+        if (_cleanerRole != role)
+            throw new InvalidOperationException("Composition error.");
+
+        _cleanerRole = null;
+    }
+    
+    // Cashier Composition
+    public void AddCashierRole(CashierRole role)
+    {
+        if (role == null)
+            throw new ArgumentNullException(nameof(role));
+
+        if (_cashierRole != null)
+            throw new InvalidOperationException("Employee already has Cashier role.");
+
+        if (role.Employee != this)
+            throw new InvalidOperationException("Composition error: role belongs to another employee.");
+
+        _cashierRole = role;
+    }
+
+    public void RemoveCashierRole(CashierRole role)
+    {
+        if (_cashierRole != role)
+            throw new InvalidOperationException("Composition error.");
+
+        _cashierRole = null;
+    }
+    
+    // Delete Employee
+    public static bool DeleteEmployee(Employee employee)
+    {
+        if (employee == null)
+            throw new ArgumentNullException(nameof(employee));
+        
+        if (employee.Supervisor != null)
+        {
+            employee.RemoveSupervisor(); 
+        }
+        
+        foreach (var subordinate in employee.Subordinates.ToList())
+        {
+            subordinate.RemoveSupervisor();
+        }
+        
+        employee._technicianRole?.DeletePart();
+        employee._cleanerRole?.DeletePart();
+        employee._cashierRole?.DeletePart();
+
+        employee._technicianRole = null;
+        employee._cleanerRole = null;
+        employee._cashierRole = null;
+        
+        return _all.Remove(employee);
+    }
+
+
+    // Reflex association 
 
     public void SetSupervisor(Employee? supervisor)
     {
@@ -139,9 +223,8 @@ public sealed class Employee : Person
     {
         SetSupervisor(null);
     }
-
-    // ===================== REFLEX ASSOCIATION 
-
+    
+    // Reflex Association
     public void AddSubordinate(Employee employee)
     {
         if (employee == null)
