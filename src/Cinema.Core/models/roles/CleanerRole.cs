@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Cinema.Core.models.operations;
-using System.Text.Json.Serialization; // Added
+using System.Text.Json.Serialization;
+using Cinema.Core.interfaces;
+using Cinema.Core.models.customers; // Added
 
 namespace Cinema.Core.models.roles;
 
-public sealed class CleanerRole : EmployeeRole
+public sealed class CleanerRole : ICleanerRole
 {
     private DateOnly _lastSafetyTrainingDate;
     public bool HasSafetyTraining { get; private set; }
@@ -19,11 +21,19 @@ public sealed class CleanerRole : EmployeeRole
         get => _lastSafetyTrainingDate;
         private set => _lastSafetyTrainingDate = value;
     }
+    
+    private Employee _employee;
+    public Employee Employee => _employee;
 
-    public CleanerRole(bool hasSafetyTraining, DateOnly lastSafetyTrainingDate)
+    // Constructors
+    public CleanerRole(Employee employee, bool hasTraining, DateOnly lastTraining)
     {
-        HasSafetyTraining = hasSafetyTraining;
-        LastSafetyTrainingDate = lastSafetyTrainingDate;
+        _employee = employee ?? throw new ArgumentNullException(nameof(employee));
+
+        HasSafetyTraining = hasTraining;
+        LastSafetyTrainingDate = lastTraining;
+
+        employee.AddCleanerRole(this);
     }
 
     public bool IsTrainingUpToDate()
@@ -76,5 +86,12 @@ public sealed class CleanerRole : EmployeeRole
         if (!_shifts.Contains(shift)) return;
 
         _shifts.Remove(shift);
+    }
+    
+    // Composition
+    public void DeletePart()
+    {
+        _employee.RemoveCleanerRole(this);
+        _employee = null!;
     }
 }

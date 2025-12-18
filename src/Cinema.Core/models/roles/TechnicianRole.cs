@@ -1,10 +1,12 @@
 using System.Text.Json.Serialization;
+using Cinema.Core.interfaces;
+using Cinema.Core.models.customers;
 using Cinema.Core.models.operations;
 using Cinema.Core.models.sessions;
 
 namespace Cinema.Core.models.roles;
 
-public sealed class TechnicianRole : EmployeeRole
+public sealed class TechnicianRole : ITechnicianRole
 {
     // Fields
     private string _degree = null!;
@@ -16,6 +18,9 @@ public sealed class TechnicianRole : EmployeeRole
     private readonly List<Equipment> _equipment = new();
 
     private readonly bool _isDummy;
+    
+    private Employee _employee;
+    public Employee Employee => _employee;
 
     // Properties
     public string Degree
@@ -48,14 +53,18 @@ public sealed class TechnicianRole : EmployeeRole
         IsOnCall = isOnCall;
     }
     
-    public TechnicianRole(string degree, bool isOnCall)
+    public TechnicianRole(Employee employee, string degree, bool isOnCall)
         : this(degree, isOnCall, false)
     {
+        _employee = employee ?? throw new ArgumentNullException(nameof(employee));
+        
         var dummySession = Session.CreateDummyForTechnician(this);
         _sessions.Add(dummySession);
         
         var dummyEquipment = Equipment.CreateDummyForTechnician(this);
         _equipment.Add(dummyEquipment);
+        
+        employee.AddTechnicianRole(this);
     }
 
     // Factories
@@ -138,5 +147,12 @@ public sealed class TechnicianRole : EmployeeRole
     public void AttachEquipmentDummy(Equipment equipment)
     {
         if (!_equipment.Contains(equipment)) _equipment.Add(equipment);
+    }
+    
+    // Composition
+    public void DeletePart()
+    {
+        _employee.RemoveTechnicianRole(this);
+        _employee = null!;
     }
 }
