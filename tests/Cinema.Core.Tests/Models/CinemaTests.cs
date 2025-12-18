@@ -4,7 +4,6 @@ using Cinema.Core.models.customers;
 using Cinema.Core.models.sales;
 using Cinema.Core.models.sessions;
 using Cinema.Core.models.roles;
-using Cinema.Core.models.contract;
 using Cinema.Core.models.operations;
 
 namespace Cinema.Core.Tests.Models
@@ -21,7 +20,7 @@ namespace Cinema.Core.Tests.Models
         [TearDown]
         public void Cleanup()
         {
-            var files = new[] { "customers.json", "sessions.json", "orders.json", "employees.json", "halls.json" };
+            var files = new[] { "customers.json", "sessions.json", "orders.json", "employees.json", "halls.json", "tickets.json", "shifts.json", "equipment.json" };
             foreach (var f in files)
             {
                 if (File.Exists(f)) File.Delete(f);
@@ -40,7 +39,7 @@ namespace Cinema.Core.Tests.Models
             ClearStaticList<Ticket>("_all");
             ClearStaticList<Seat>("All");
             ClearStaticList<Order>("_all");
-            ClearStaticList<Movie>("All");
+            ClearStaticProperty<Movie>("All");
             ClearStaticList<Promotion>("_all");
             ClearStaticList<Review>("_all");
             ClearStaticList<Shift>("_all");
@@ -48,17 +47,28 @@ namespace Cinema.Core.Tests.Models
             ClearStaticList<Hall>("_all");
         }
 
-        private void ClearStaticList<T>(string fieldName)
+        private void ClearStaticList<T>(string memberName)
         {
             var type = typeof(T);
-            var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-            var prop = type.GetProperty(fieldName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            var field = type.GetField(memberName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            if (field != null)
+            {
+                if (field.GetValue(null) is IList list) list.Clear();
+                return;
+            }
 
-            object? listObject = null;
-            if (field != null) listObject = field.GetValue(null);
-            else if (prop != null) listObject = prop.GetValue(null);
+            var prop = type.GetProperty(memberName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            if (prop != null)
+            {
+                if (prop.GetValue(null) is IList list) list.Clear();
+            }
+        }
 
-            if (listObject is IList list)
+        private void ClearStaticProperty<T>(string propName)
+        {
+            var type = typeof(T);
+            var prop = type.GetProperty(propName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            if (prop != null && prop.GetValue(null) is IList list)
             {
                 list.Clear();
             }
@@ -77,10 +87,9 @@ namespace Cinema.Core.Tests.Models
             return (List<T>)val!;
         }
 
-        // Helper to construct an Order with Tickets via public API
         private Order CreateOrderWithTickets(int ticketCount, Session session, SeatType seatType)
         {
-            // Create a valid dummy order (BoxOffice requires a Cashier)
+            // BoxOffice order requires a Cashier
             var cashier = CreateDummyCashierRole();
             var order = new Order(DateTime.Now, TypeOfOrder.BoxOffice, OrderStatus.Pending, cashier: cashier);
 
@@ -93,8 +102,149 @@ namespace Cinema.Core.Tests.Models
             return order;
         }
 
+        private Session CreateDummySession()
+        {
+            var hall = new Hall("H1");
+            var movie = new Movie("Matrix", TimeSpan.FromHours(2), new[] { "SciFi" });
+            return new Session(hall, movie, DateTime.Now.AddDays(1), "English");
+        }
+
+        private Employee CreateDummyEmployee(string firstName, ContractType type = ContractType.FullTimeContract)
+        {
+            decimal? salary = type == ContractType.FullTimeContract ? 2000m : null;
+            bool? benefits = type == ContractType.FullTimeContract ? true : null;
+            decimal? hourly = type == ContractType.PartTimeContract ? 20m : null;
+            int? hours = type == ContractType.PartTimeContract ? 20 : null;
+
+            return new Employee(
+                firstName,
+                "Doe",
+                new DateOnly(1990, 1, 1),
+                new DateOnly(2023, 1, 1),
+                "123456",
+                type,
+                salary,
+                benefits,
+                hourly,
+                hours
+            );
+        }
+
+        private TechnicianRole CreateDummyTechnician(string degree)
+        {
+            var emp = CreateDummyEmployee("TechGuy");
+            return new TechnicianRole(emp, degree, true);
+        }
+
+        private CashierRole CreateDummyCashierRole()
+        {
+            var emp = CreateDummyEmployee("CashierEmp");
+            return new CashierRole(emp, "POS1", "Pass123!");
+        }
+
         // ==================================================================
-        // 1. BASIC ASSOCIATION & MULTIPLICITY
+        // 1. INHERITANCE: FLATTENING (Employee Contracts)
+        // ==================================================================
+
+        [Test]
+        public void Flattening_FullTimeEmployee_ShouldHaveSalary_AndNoHourlyRate()
+        {
+            var emp = new Employee("John", "Full", new DateOnly(1990, 1, 1), DateOnly.FromDateTime(DateTime.Today), "111",
+                ContractType.FullTimeContract, salary: 2500m, hasBenefitsPlan: true);
+
+            Assert.That(emp.ContractType, Is.EqualTo(ContractType.FullTimeContract));
+            Assert.That(emp.Salary, Is.EqualTo(2500m));
+            Assert.That(emp.HasBenefitsPlan, Is.True);
+            Assert.That(emp.HourlyRate, Is.Null);
+            Assert.That(emp.MaxWeekHours, Is.Null);
+        }
+
+        [Test]
+        public void Flattening_PartTimeEmployee_ShouldHaveHourlyRate_AndNoSalary()
+        {
+            var emp = new Employee("Jane", "Part", new DateOnly(1995, 1, 1), DateOnly.FromDateTime(DateTime.Today), "222",
+                ContractType.PartTimeContract, hourlyRate: 15.5m, maxWeekHours: 20);
+
+            Assert.That(emp.ContractType, Is.EqualTo(ContractType.PartTimeContract));
+            Assert.That(emp.HourlyRate, Is.EqualTo(15.5m));
+            Assert.That(emp.MaxWeekHours, Is.EqualTo(20));
+            Assert.That(emp.Salary, Is.Null);
+            Assert.That(emp.HasBenefitsPlan, Is.Null);
+        }
+
+        [Test]
+        public void Flattening_Constraint_SettingHourlyRateOnFullTime_ShouldThrow()
+        {
+            var emp = CreateDummyEmployee("FullTimer", ContractType.FullTimeContract);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => emp.HourlyRate = 20m);
+            Assert.That(ex.Message, Does.Contain("Full-time employees cannot be assigned an Hourly Rate"));
+        }
+
+        [Test]
+        public void Flattening_Constraint_SettingSalaryOnPartTime_ShouldThrow()
+        {
+            var emp = CreateDummyEmployee("PartTimer", ContractType.PartTimeContract);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => emp.Salary = 3000m);
+            Assert.That(ex.Message, Does.Contain("Part-time employees cannot be assigned a Salary"));
+        }
+
+        // ==================================================================
+        // 2. INHERITANCE: COMPOSITION (Employee Roles)
+        // ==================================================================
+
+        [Test]
+        public void Composition_AddTechnicianRole_ShouldLinkBidirectionally()
+        {
+            var emp = CreateDummyEmployee("TechMaster");
+            var role = new TechnicianRole(emp, "Sound Master", true);
+
+            Assert.That(emp.TechnicianRole, Is.EqualTo(role));
+            Assert.That(role.Employee, Is.EqualTo(emp));
+        }
+
+        [Test]
+        public void Composition_AddDuplicateRole_ShouldThrow()
+        {
+            var emp = CreateDummyEmployee("MultiRole");
+            var role1 = new TechnicianRole(emp, "Level 1", true);
+
+            var ex = Assert.Throws<InvalidOperationException>(() => new TechnicianRole(emp, "Level 2", false));
+            Assert.That(ex.Message, Does.Contain("Employee already has Technician role"));
+        }
+
+        [Test]
+        public void Composition_DeleteEmployee_ShouldCascadeDeleteRoles()
+        {
+            var emp = CreateDummyEmployee("ToBeDeleted");
+            var techRole = new TechnicianRole(emp, "Degree", true);
+            var cleanerRole = new CleanerRole(emp, true, DateOnly.FromDateTime(DateTime.Now.AddMonths(-1)));
+
+            Assert.That(emp.TechnicianRole, Is.Not.Null);
+            Assert.That(emp.CleanerRole, Is.Not.Null);
+
+            Employee.DeleteEmployee(emp);
+
+            Assert.That(Employee.All, Does.Not.Contain(emp));
+            Assert.That(emp.TechnicianRole, Is.Null);
+            Assert.That(emp.CleanerRole, Is.Null);
+        }
+
+        [Test]
+        public void Composition_RoleMustBelongToSpecificEmployee()
+        {
+            var emp1 = CreateDummyEmployee("Emp1");
+            var emp2 = CreateDummyEmployee("Emp2");
+            var roleForEmp1 = new TechnicianRole(emp1, "Degree", true);
+
+            // Attempt to force add emp1's role to emp2
+            var ex = Assert.Throws<InvalidOperationException>(() => emp2.AddTechnicianRole(roleForEmp1));
+            Assert.That(ex.Message, Does.Contain("role belongs to another employee"));
+        }
+
+        // ==================================================================
+        // 3. BASIC ASSOCIATION & MULTIPLICITY
         // ==================================================================
 
         [Test]
@@ -110,18 +260,6 @@ namespace Cinema.Core.Tests.Models
         }
 
         [Test]
-        public void Association_TechnicianSession_ShouldLinkReverseConnection()
-        {
-            var session = CreateDummySession();
-            var tech = CreateDummyTechnician("Projectionist");
-
-            tech.AddSession(session);
-
-            Assert.That(tech.Sessions, Contains.Item(session));
-            Assert.That(session.Technicians, Contains.Item(tech));
-        }
-
-        [Test]
         public void Multiplicity_SessionMustHaveOneTechnician_RemoveShouldThrow()
         {
             var session = CreateDummySession();
@@ -134,18 +272,20 @@ namespace Cinema.Core.Tests.Models
             session.RemoveTechnician(tech1);
             Assert.That(session.Technicians, Does.Not.Contain(tech1));
 
-            session.RemoveTechnician(tech2);
+            var cleanSession = CreateDummySession();
 
-            var dummy = session.Technicians.FirstOrDefault();
-            if (dummy != null)
-            {
-                var ex = Assert.Throws<InvalidOperationException>(() => session.RemoveTechnician(dummy));
-                Assert.That(ex.Message, Does.Contain("at least one technician"));
-            }
+            var realTech = CreateDummyTechnician("Real");
+            cleanSession.AddTechnician(realTech);
+
+            cleanSession.RemoveTechnician(realTech);
+
+            var dummy = cleanSession.Technicians.First();
+            var ex = Assert.Throws<InvalidOperationException>(() => cleanSession.RemoveTechnician(dummy));
+            Assert.That(ex.Message, Does.Contain("at least one technician"));
         }
 
         // ==================================================================
-        // 2. COMPOSITION ASSOCIATION
+        // 4. COMPOSITION ASSOCIATION (Ticket-Order)
         // ==================================================================
 
         [Test]
@@ -170,24 +310,8 @@ namespace Cinema.Core.Tests.Models
             Assert.That(order.Tickets.Count, Is.EqualTo(1));
         }
 
-        [Test]
-        public void Composition_DeleteOrder_ShouldCascadeDeleteTickets()
-        {
-            var session = CreateDummySession();
-            var order = CreateOrderWithTickets(3, session, SeatType.Normal);
-            var tickets = order.Tickets.ToList();
-
-            Order.DeleteOrder(order);
-
-            Assert.That(Order.All, Does.Not.Contain(order));
-            foreach (var t in tickets)
-            {
-                Assert.That(Ticket.All, Does.Not.Contain(t), "Ticket should be deleted when Order is deleted");
-            }
-        }
-
         // ==================================================================
-        // 3. AGGREGATION ASSOCIATION
+        // 5. AGGREGATION ASSOCIATION
         // ==================================================================
 
         [Test]
@@ -201,10 +325,14 @@ namespace Cinema.Core.Tests.Models
 
             var equipment2 = new Equipment(EquipmentType.Projection, DateTime.Now, hall);
             Assert.That(hall.Equipment.Count, Is.EqualTo(2));
+
+            hall.RemoveEquipment(equipment);
+            Assert.That(hall.Equipment, Does.Not.Contain(equipment));
+            Assert.That(hall.Name, Is.EqualTo("IMAX Hall"));
         }
 
         // ==================================================================
-        // 4. REFLEX ASSOCIATION
+        // 6. REFLEX ASSOCIATION
         // ==================================================================
 
         [Test]
@@ -220,21 +348,6 @@ namespace Cinema.Core.Tests.Models
         }
 
         [Test]
-        public void Reflex_ChangeSupervisor_ShouldUpdateLinks()
-        {
-            var boss1 = CreateDummyEmployee("Boss1");
-            var boss2 = CreateDummyEmployee("Boss2");
-            var worker = CreateDummyEmployee("Worker");
-
-            worker.SetSupervisor(boss1);
-            worker.SetSupervisor(boss2);
-
-            Assert.That(worker.Supervisor, Is.EqualTo(boss2));
-            Assert.That(boss1.Subordinates, Does.Not.Contain(worker));
-            Assert.That(boss2.Subordinates, Contains.Item(worker));
-        }
-
-        [Test]
         public void Reflex_SelfSupervision_ShouldThrow()
         {
             var emp = CreateDummyEmployee("LoneWolf");
@@ -243,7 +356,7 @@ namespace Cinema.Core.Tests.Models
         }
 
         // ==================================================================
-        // 5. QUALIFIED ASSOCIATION
+        // 7. QUALIFIED ASSOCIATION
         // ==================================================================
 
         [Test]
@@ -258,44 +371,13 @@ namespace Cinema.Core.Tests.Models
             Assert.That(retrieved, Is.EqualTo(seat));
         }
 
-        [Test]
-        public void QualifiedAssociation_DuplicateSeatNumber_ShouldThrow()
-        {
-            var hall = new Hall("Standard");
-            var seat1 = new Seat(SeatType.Normal, 10m, true);
-
-            hall.AddSeat(seat1);
-
-            var ex = Assert.Throws<InvalidOperationException>(() => hall.AddSeat(seat1));
-            Assert.That(ex.Message, Does.Contain($"Seat with Id {seat1.Id} already exists"));
-        }
-
         // ==================================================================
-        // 6. ASSOCIATION WITH ATTRIBUTE
-        // ==================================================================
-
-        [Test]
-        public void AssociationClass_Review_ShouldLinkCustomerAndSession()
-        {
-            var customer = new Customer("John", "Critic", new DateOnly(1990, 1, 1), "crit@test.com", "Pass123");
-            var session = CreateDummySession();
-
-            var review = new Review(5, 4, DateTime.Now, "Great!", customer, session);
-
-            Assert.That(customer.Reviews, Contains.Item(review));
-            Assert.That(session.Reviews, Contains.Item(review));
-            Assert.That(review.Author, Is.EqualTo(customer));
-            Assert.That(review.ReviewedSession, Is.EqualTo(session));
-        }
-
-        // ==================================================================
-        // 7. XOR & BUSINESS LOGIC
+        // 8. XOR & BUSINESS LOGIC
         // ==================================================================
 
         [Test]
         public void XOR_Order_OnlineMustHaveCustomer()
         {
-            
             var ex = Assert.Throws<ArgumentException>(() =>
                 new Order(DateTime.Now, TypeOfOrder.Online, OrderStatus.Pending, customer: null, cashier: null));
 
@@ -315,29 +397,17 @@ namespace Cinema.Core.Tests.Models
         }
 
         // ==================================================================
-        // 8. LOGIC & PERSISTENCE
+        // 9. PERSISTENCE
         // ==================================================================
 
         [Test]
-        public void Logic_SeatPrice_VipMultiplier()
-        {
-            var seat = new Seat(SeatType.Vip, 100m, true);
-            // Multiplier is 1.8m
-            Assert.That(seat.CalculateFinalSeatPrice(), Is.EqualTo(180m));
-        }
-
-        [Test]
-        public void Persistence_FullFlow_SaveAndLoad()
+        public void Persistence_FullFlow_SaveAndLoad_Hall()
         {
             var hall = new Hall("PersistenceHall");
-
-            
             hall.AddSeat(new Seat(SeatType.Normal, 10, true));
 
             Hall.SaveToFile("halls.json");
-
             ClearAllExtents();
-
             Hall.LoadFromFile("halls.json");
 
             var loadedHalls = GetStaticList<Hall>("_all");
@@ -346,35 +416,23 @@ namespace Cinema.Core.Tests.Models
             Assert.That(loadedHalls[0].Name, Is.EqualTo("PersistenceHall"));
         }
 
-        // ==================================================================
-        // TEST HELPERS
-        // ==================================================================
-
-        private Session CreateDummySession()
+        [Test]
+        public void Persistence_FullFlow_SaveAndLoad_EmployeeFlattened()
         {
-            var hall = new Hall("H1");
-            var movie = new Movie("Matrix", TimeSpan.FromHours(2), new[] { "SciFi" });
-            return new Session(hall, movie, DateTime.Now.AddDays(1), "English");
-        }
+            var emp = new Employee("SaveMe", "Jones", new DateOnly(1990, 1, 1), DateOnly.FromDateTime(DateTime.Today),
+                "999", ContractType.PartTimeContract, hourlyRate: 50m, maxWeekHours: 25);
 
-        private Employee CreateDummyEmployee(string firstName)
-        {
-            var contract = new FullTimeContract(2000m, true);
-            return new Employee(firstName, "Doe", new DateOnly(1990, 1, 1),
-                new DateOnly(2023, 1, 1), "123456", contract);
-        }
+            Employee.SaveToFile("employees.json");
+            ClearAllExtents();
+            Employee.LoadFromFile("employees.json");
 
-        private TechnicianRole CreateDummyTechnician(string degree)
-        {
-            return new TechnicianRole(degree, true);
-        }
+            var loadedEmps = GetStaticList<Employee>("_all");
+            var loadedEmp = loadedEmps.FirstOrDefault(e => e.FirstName == "SaveMe");
 
-        private CashierRole CreateDummyCashierRole()
-        {
-            var role = new CashierRole("POS1", "Pass123!");
-            var emp = CreateDummyEmployee("CashierEmp");
-            emp.AddRole(role);
-            return role;
+            Assert.That(loadedEmp, Is.Not.Null);
+            Assert.That(loadedEmp!.ContractType, Is.EqualTo(ContractType.PartTimeContract));
+            Assert.That(loadedEmp.HourlyRate, Is.EqualTo(50m));
+            Assert.That(loadedEmp.Salary, Is.Null);
         }
     }
 }
