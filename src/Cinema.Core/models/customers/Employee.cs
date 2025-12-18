@@ -1,9 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Cinema.Core.models.contract;
 using Cinema.Core.models.roles;
 
 namespace Cinema.Core.models.customers;
+
+public enum ContractType
+{
+    FullTimeContract,
+    PartTimeContract
+}
 
 public sealed class Employee : Person
 {
@@ -14,7 +19,9 @@ public sealed class Employee : Person
     // Fields
     private DateOnly _hiringDate;
     private string _phoneNumber;
-    private EmploymentContract _contract;
+    
+    // Flattening: Discriminator
+    public ContractType ContractType { get; private set; }
 
     // Basic properties
     public DateOnly HiringDate
@@ -41,14 +48,121 @@ public sealed class Employee : Person
             _phoneNumber = value;
         }
     }
+    
+    // FLATTENED CONTRACT FIELDS
+    
+    // Full-Time Contract
+    public static readonly decimal MIN_SALARY = 500m;
+    public static readonly decimal MAX_SALARY = 3500m;
 
-    public EmploymentContract Contract
+    private decimal? _salary;
+    public decimal? Salary
     {
-        get => _contract;
-        private set => _contract = value ?? throw new ArgumentNullException(nameof(value));
+        get => _salary;
+        set
+        {
+            if (ContractType == ContractType.PartTimeContract)
+            {
+                if (value != null)
+                    throw new InvalidOperationException("Part-time employees cannot be assigned a Salary.");
+                
+                _salary = null;
+                return;
+            }
+            
+            if (value == null)
+                throw new ArgumentNullException(nameof(Salary), "Full-time employees must have a Salary.");
+
+            if (value < MIN_SALARY)
+                throw new ArgumentOutOfRangeException(nameof(Salary), $"Salary must be at least {MIN_SALARY}.");
+        
+            if (value > MAX_SALARY)
+                throw new ArgumentOutOfRangeException(nameof(Salary), $"Salary cannot exceed {MAX_SALARY}.");
+        
+            if (decimal.Round(value.Value, 2) != value)
+                throw new ArgumentException("Salary must have at most two decimal places.", nameof(Salary));
+            
+            _salary = value;
+        }
+    }
+    
+    private bool? _hasBenefitsPlan;
+    public bool? HasBenefitsPlan 
+    { 
+        get => _hasBenefitsPlan; 
+        private set
+        {
+            if (ContractType == ContractType.PartTimeContract)
+            {
+                if (value != null && value == true)
+                    throw new InvalidOperationException("Part-time employees cannot have a Benefits Plan.");
+                _hasBenefitsPlan = null;
+                return;
+            }
+            
+            _hasBenefitsPlan = value ?? false;
+        }
+    }
+    
+    
+    // Part-Time Contract
+    public static readonly decimal MIN_HOURLY_RATE = 5.00m;
+    public static readonly decimal MAX_HOURLY_RATE = 50.00m;
+    public static readonly int MIN_WEEKLY_HOURS = 1;
+    public static readonly int MAX_WEEKLY_HOURS = 30;
+    
+    private decimal? _hourlyRate;
+    public decimal? HourlyRate { get => _hourlyRate;
+        set
+        {
+            if (ContractType == ContractType.FullTimeContract)
+            {
+                if (value != null)
+                    throw new InvalidOperationException("Full-time employees cannot be assigned an Hourly Rate.");
+                
+                _hourlyRate = null;
+                return;
+            }
+            
+            
+            if (value == null)
+                throw new ArgumentNullException(nameof(HourlyRate), "Part-time employees must have an Hourly Rate.");
+
+            if (value < MIN_HOURLY_RATE || value > MAX_HOURLY_RATE)
+                throw new ArgumentOutOfRangeException(nameof(HourlyRate),
+                    $"Hourly rate must be between {MIN_HOURLY_RATE} and {MAX_HOURLY_RATE}.");
+            
+            _hourlyRate = value;
+        }
     }
 
-    // Employee roles
+    private int? _maxWeekHours;
+    public int? MaxWeekHours
+    {
+        get => _maxWeekHours;
+        set
+        {
+            if (ContractType == ContractType.FullTimeContract)
+            {
+                if (value != null)
+                    throw new InvalidOperationException("Full-time employees cannot be assigned Max Weekly Hours.");
+                
+                _maxWeekHours = null;
+                return;
+            }
+            
+            if (value == null)
+                throw new ArgumentNullException(nameof(MaxWeekHours), "Part-time employees must have Max Weekly Hours.");
+
+            if (value < MIN_WEEKLY_HOURS || value > MAX_WEEKLY_HOURS)
+                throw new ArgumentOutOfRangeException(nameof(MaxWeekHours),
+                    $"Weekly hours must be between {MIN_WEEKLY_HOURS} and {MAX_WEEKLY_HOURS}.");
+
+            _maxWeekHours = value;
+        }
+    }
+
+    // ROLES (Composition)
     private TechnicianRole? _technicianRole;
     private CleanerRole? _cleanerRole;
     private CashierRole? _cashierRole;
@@ -69,24 +183,34 @@ public sealed class Employee : Person
     public IReadOnlyList<Employee> Subordinates => _subordinates.AsReadOnly();
 
     // Constructor
+    [JsonConstructor]
     public Employee(
         string firstName,
         string lastName,
         DateOnly dateOfBirth,
         DateOnly hiringDate,
         string phoneNumber,
-        EmploymentContract contract)
+        ContractType contractType,
+        decimal? salary = null,
+        bool? hasBenefitsPlan = null,
+        decimal? hourlyRate = null,
+        int? maxWeekHours = null)
         : base(firstName, lastName, dateOfBirth)
     {
         HiringDate  = hiringDate;
         PhoneNumber = phoneNumber;
-        Contract    = contract;
+        
+        ContractType = contractType;
+        
+        Salary = salary;
+        HourlyRate = hourlyRate;
+        MaxWeekHours = maxWeekHours;
+        HasBenefitsPlan = hasBenefitsPlan;
 
         _all.Add(this);
     }
 
     // ROLES
-    
     // Technician Composition
     public void AddTechnicianRole(TechnicianRole role)
     {
@@ -185,7 +309,6 @@ public sealed class Employee : Person
 
 
     // Reflex association 
-
     public void SetSupervisor(Employee? supervisor)
     {
         if (ReferenceEquals(supervisor, this))
@@ -264,12 +387,6 @@ public sealed class Employee : Person
         {
             employee.SetSupervisor(null);
         }
-    }
-
-    // Contract
-    public void ChangeContract(EmploymentContract newContract)
-    {
-        Contract = newContract ?? throw new ArgumentNullException(nameof(newContract));
     }
 
     // Persistence
